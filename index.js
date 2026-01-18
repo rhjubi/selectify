@@ -25,15 +25,18 @@ const Notice = require('./models/Notice');
 
 const Student = User; 
 
-// --- EMAIL CONFIGURATION (BREVO / Sendinblue) ---
+// --- EMAIL CONFIGURATION (BREVO - PORT 2525 FIX) ---
 const transporter = nodemailer.createTransport({
-    host: 'smtp-relay.brevo.com', // Brevo SMTP Host
-    port: 587, // Port 587 is standard for Brevo
-    secure: false, // false for port 587
+    host: 'smtp-relay.brevo.com',
+    port: 2525, // FIX: 587 কাজ না করলে 2525 ব্যবহার করতে হয়
+    secure: false, 
     auth: {
-        user: process.env.EMAIL_USER, // Render Env থেকে নিবে
-        pass: process.env.EMAIL_PASS  // Render Env থেকে নিবে
-    }
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    },
+    // ডিবাগিং-এর জন্য নিচের লাইনগুলো রাখা হলো, সমস্যা হলে বিস্তারিত লগ দেখাবে
+    logger: true,
+    debug: true
 });
 
 // ৩. অথেনটিকেশন এপিআই
@@ -70,14 +73,14 @@ app.post('/api/signup', async (req, res) => {
 
         // Send Email via Brevo
         const mailOptions = {
-            from: `LMS Admin <${process.env.EMAIL_USER}>`, // স্মার্ট ফিক্স: হার্ডকোড না করে Env থেকে নিবে
+            from: `LMS Admin <${process.env.EMAIL_USER}>`, 
             to: email,
             subject: 'Verify Your Account - OTP',
             text: `Welcome ${name}! Your OTP for account verification is: ${otp}`
         };
 
         try {
-            console.log("Attempting to send email via Brevo..."); 
+            console.log("Attempting to send email via Brevo (Port 2525)..."); 
             let info = await transporter.sendMail(mailOptions);
             console.log("✅ Email sent info: ", info);
             res.json({ success: true, message: "OTP sent to email. Please verify." });
@@ -153,7 +156,7 @@ app.post('/api/forgot-password', async (req, res) => {
         await user.save();
 
         const mailOptions = {
-            from: `LMS Admin <${process.env.EMAIL_USER}>`, // স্মার্ট ফিক্স
+            from: `LMS Admin <${process.env.EMAIL_USER}>`, 
             to: email, 
             subject: 'Password Reset OTP',
             text: `Your OTP for password reset is: ${otp}`
