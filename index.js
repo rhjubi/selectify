@@ -25,18 +25,14 @@ const Notice = require('./models/Notice');
 
 const Student = User; 
 
-// --- EMAIL CONFIGURATION (UPDATED FOR PORT 587) ---
-// পোর্ট 587 এবং secure: false ব্যবহার করা হয়েছে যা ক্লাউড সার্ভারে ভালো কাজ করে
+// --- EMAIL CONFIGURATION (BREVO / Sendinblue) ---
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // 587 পোর্টের জন্য এটি false হতে হবে
+    host: 'smtp-relay.brevo.com', // Brevo SMTP Host
+    port: 587, // Port 587 is standard for Brevo
+    secure: false, // false for port 587
     auth: {
-        user: process.env.EMAIL_USER, // Render এর Environment Variable থেকে নিবে
-        pass: process.env.EMAIL_PASS  // Render এর Environment Variable থেকে নিবে
-    },
-    tls: {
-        rejectUnauthorized: false // কানেকশন এরর এড়াতে সাহায্য করে
+        user: process.env.EMAIL_USER, // Render Env থেকে নিবে
+        pass: process.env.EMAIL_PASS  // Render Env থেকে নিবে
     }
 });
 
@@ -72,16 +68,16 @@ app.post('/api/signup', async (req, res) => {
         
         await user.save();
 
-        // Send Email
+        // Send Email via Brevo
         const mailOptions = {
-            from: 'LMS Admin <rakib.u.habibee@gmail.com>',
+            from: `LMS Admin <${process.env.EMAIL_USER}>`, // স্মার্ট ফিক্স: হার্ডকোড না করে Env থেকে নিবে
             to: email,
             subject: 'Verify Your Account - OTP',
             text: `Welcome ${name}! Your OTP for account verification is: ${otp}`
         };
 
         try {
-            console.log("Attempting to send email..."); 
+            console.log("Attempting to send email via Brevo..."); 
             let info = await transporter.sendMail(mailOptions);
             console.log("✅ Email sent info: ", info);
             res.json({ success: true, message: "OTP sent to email. Please verify." });
@@ -157,7 +153,7 @@ app.post('/api/forgot-password', async (req, res) => {
         await user.save();
 
         const mailOptions = {
-            from: 'LMS Admin <rakib.u.habibee@gmail.com>', 
+            from: `LMS Admin <${process.env.EMAIL_USER}>`, // স্মার্ট ফিক্স
             to: email, 
             subject: 'Password Reset OTP',
             text: `Your OTP for password reset is: ${otp}`
