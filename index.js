@@ -32,8 +32,8 @@ const transporter = nodemailer.createTransport({
     port: 465,  // SSL Port (Render এ এটি ভালো কাজ করে)
     secure: true, // true for 465, false for other ports
     auth: {
-        user: 'rakib.u.habibee@gmail.com', // আপনার জিমেইল
-        pass: 'kdrb tlpr raqz qolu'    // আপনার অ্যাপ পাসওয়ার্ড
+        user: process.env.EMAIL_USER, // Render এর Environment Variable থেকে নিবে
+        pass: process.env.EMAIL_PASS  // Render এর Environment Variable থেকে নিবে
     }
 });
 
