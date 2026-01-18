@@ -3,7 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
-const nodemailer = require('nodemailer');
+// const nodemailer = require('nodemailer'); // ইমেইল দরকার নেই তাই বন্ধ রাখা হলো
 
 const app = express();
 app.use(cors());
@@ -25,82 +25,48 @@ const Notice = require('./models/Notice');
 
 const Student = User; 
 
-// --- EMAIL CONFIGURATION (FINAL FIX) ---
-const transporter = nodemailer.createTransport({
-    host: 'smtp-relay.brevo.com',
-    port: 2525, // Port 2525 is safest
-    secure: false, 
-    auth: {
-        // গুরুত্বপুর্ণ: এখানে অবশ্যই Brevo একাউন্টের লগইন ইমেইল দিতে হবে
-        user: process.env.EMAIL_USER, // এটি হবে: rakib.u.habibee@gmail.com
-        pass: process.env.EMAIL_PASS  // এটি হবে: xsmtpsib-...
-    },
-    logger: true,
-    debug: true
-});
+// --- EMAIL CONFIGURATION DISABLED ---
+// আমরা এখন আর মেইল পাঠাবো না, তাই ট্রান্সপোর্টার দরকার নেই।
 
 // ৩. অথেনটিকেশন এপিআই
 
-// Step 1: Signup Request
+// Step 1: Signup Request (Direct Signup - No OTP)
 app.post('/api/signup', async (req, res) => {
     try {
         const { name, email, password, category } = req.body;
         if (!name || !email || !password || !category) return res.status(400).json({ error: "All fields are required!" });
 
+        // Check if user exists
         let user = await Student.findOne({ email });
-        if (user) {
-            if (user.isVerified) return res.status(400).json({ error: "Email already registered & verified!" });
-            else { user.name = name; user.password = password; user.category = category; }
-        } else {
-            user = new Student({ name, email, password, category, isVerified: false });
-        }
 
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        user.otp = otp;
-        user.otpExpire = Date.now() + 10 * 60 * 1000;
+        if (user) {
+            return res.status(400).json({ error: "Email already registered!" });
+        } else {
+            // New User - সরাসরি ভেরিফাইড হিসেবে সেভ করছি
+            user = new Student({ 
+                name, 
+                email, 
+                password, 
+                category, 
+                isVerified: true // ম্যাজিক লাইন: অটোমেটিক ভেরিফাইড!
+            });
+        }
+        
         await user.save();
 
-        // Send Email
-        const mailOptions = {
-            // গুরুত্বপুর্ণ: Sender হবে আপনার ভেরিফাইড বিজনেস ইমেইল
-            from: 'LMS Admin <jubaer@nasir-group.biz>', 
-            to: email, 
-            subject: 'Verify Your Account - OTP',
-            text: `Welcome ${name}! Your OTP for account verification is: ${otp}`
-        };
+        // OTP না পাঠিয়ে সরাসরি সাকসেস মেসেজ
+        res.json({ success: true, message: "Registration successful! You can login now." });
 
-        try {
-            console.log("Sending email via Brevo (Auth: Gmail, Sender: Biz)..."); 
-            let info = await transporter.sendMail(mailOptions);
-            console.log("✅ Email sent info: ", info.messageId);
-            res.json({ success: true, message: "OTP sent to email. Please verify." });
-        } catch (mailError) {
-            console.error("❌ Mail Sending Error Detail:", mailError);
-            return res.status(500).json({ error: "Failed to send OTP. Check server logs." });
-        }
-
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        console.error("Signup Error:", err);
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
-// Step 2: Verify OTP
+// Step 2: Verify OTP (এই এপিআইটি ফ্রন্টএন্ড এরর এড়াতে রাখা হলো, কিন্তু কাজ করবে না)
 app.post('/api/verify-signup', async (req, res) => {
-    try {
-        const { email, otp } = req.body;
-        const user = await Student.findOne({ email });
-
-        if (!user) return res.status(400).json({ error: "User not found!" });
-        if (user.isVerified) return res.status(400).json({ error: "User already verified!" });
-        
-        if (user.otp !== otp) return res.status(400).json({ error: "Invalid OTP!" });
-        if (user.otpExpire < Date.now()) return res.status(400).json({ error: "OTP Expired!" });
-
-        user.isVerified = true;
-        user.otp = undefined;
-        user.otpExpire = undefined;
-        await user.save();
-
-        res.json({ success: true, message: "Verification successful!" });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    // যেহেতু অটো ভেরিফাই হচ্ছে, তাই এখানে সরাসরি সাকসেস রিটার্ন করছি
+    res.json({ success: true, message: "Already verified!" });
 });
 
 
@@ -109,53 +75,30 @@ app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
         const user = await Student.findOne({ email });
+        
         if (!user) return res.status(401).json({ error: "Invalid email or password!" });
-        if (!user.isVerified) return res.status(401).json({ error: "Account not verified!" });
+        
+        // ভেরিফিকেশন চেক করার দরকার নেই, কারণ সবাই ভেরিফাইড
+        // if (!user.isVerified) ... (এই লাইন বাদ)
+
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(401).json({ error: "Invalid email or password!" });
+
         res.json({ success: true, user: { name: user.name, email: user.email, category: user.category } });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Forgot Password API
+// --- Forgot Password APIs (Disabled / Fake Response) ---
 app.post('/api/forgot-password', async (req, res) => {
-    try {
-        const { email } = req.body;
-        const user = await Student.findOne({ email });
-        if (!user) return res.status(404).json({ error: "User not found!" });
-
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        user.otp = otp;
-        user.otpExpire = Date.now() + 10 * 60 * 1000;
-        await user.save();
-
-        const mailOptions = {
-            from: 'LMS Admin <jubaer@nasir-group.biz>', 
-            to: email, 
-            subject: 'Password Reset OTP',
-            text: `Your OTP for password reset is: ${otp}`
-        };
-        
-        await transporter.sendMail(mailOptions);
-        res.json({ success: true, message: "OTP sent!" });
-    } catch (err) { res.status(500).json({ error: "Mail failed." }); }
+    // ইমেইল ছাড়া এটি কাজ করবে না, তাই একটি ডামি মেসেজ দিচ্ছি
+    res.json({ success: true, message: "Please contact admin to reset password (Email service disabled)." });
 });
 
 app.post('/api/reset-password', async (req, res) => {
-    try {
-        const { email, otp, newPassword } = req.body;
-        const user = await Student.findOne({ email, otp, otpExpire: { $gt: Date.now() } });
-        if (!user) return res.status(400).json({ error: "Invalid OTP!" });
-
-        user.password = newPassword;
-        user.otp = undefined;
-        user.otpExpire = undefined;
-        await user.save();
-        res.json({ success: true, message: "Password changed!" });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    res.status(400).json({ error: "Password reset is currently disabled." });
 });
 
-// Admin APIs
+// Other APIs (Admin Panel - আগের মতোই)
 app.get('/admin/materials', async (req, res) => res.json(await Material.find()));
 app.post('/admin/add-material', async (req, res) => { await new Material(req.body).save(); res.json({ success: true }); });
 app.put('/admin/edit-material/:id', async (req, res) => { await Material.findByIdAndUpdate(req.params.id, req.body); res.json({ success: true }); });
