@@ -25,16 +25,19 @@ const Notice = require('./models/Notice');
 
 const Student = User; 
 
-// --- EMAIL CONFIGURATION (BREVO - BUSINESS DOMAIN) ---
-// পোর্ট 587 ব্যবহার করা হচ্ছে যা বিজনেস ডোমেইনের জন্য বেস্ট
+// --- EMAIL CONFIGURATION (BREVO - PORT 2525 FIX) ---
+// পোর্ট 587 ব্লক থাকলে 2525 ব্যবহার করতে হয়
 const transporter = nodemailer.createTransport({
     host: 'smtp-relay.brevo.com',
-    port: 587,
-    secure: false, // true for 465, false for other ports
+    port: 2525, // এটি কানেকশন Timeout সমাধান করবে
+    secure: false, 
     auth: {
-        user: process.env.EMAIL_USER, // Render Env থেকে আসবে (jubaer@nasir-group.biz)
-        pass: process.env.EMAIL_PASS  // Render Env থেকে আসবে (Brevo SMTP Key)
-    }
+        user: process.env.EMAIL_USER, // Render Env: jubaer@nasir-group.biz
+        pass: process.env.EMAIL_PASS  // Render Env: Brevo SMTP Key
+    },
+    // ডিবাগ অপশন অন রাখা হলো যাতে আমরা লগ দেখতে পারি
+    logger: true,
+    debug: true
 });
 
 // ৩. অথেনটিকেশন এপিআই
@@ -73,13 +76,13 @@ app.post('/api/signup', async (req, res) => {
         const mailOptions = {
             // Sender হতে হবে ভেরিফাইড ইমেইল (jubaer@nasir-group.biz)
             from: `LMS Admin <${process.env.EMAIL_USER}>`, 
-            to: email, // গ্রাহকের ইমেইল
+            to: email, 
             subject: 'Verify Your Account - OTP',
             text: `Welcome ${name}! Your OTP for account verification is: ${otp}`
         };
 
         try {
-            console.log("Attempting to send email via Brevo..."); 
+            console.log("Attempting to send email via Brevo (Port 2525)..."); 
             let info = await transporter.sendMail(mailOptions);
             console.log("✅ Email sent info: ", info.messageId);
             res.json({ success: true, message: "OTP sent to email. Please verify." });
@@ -184,7 +187,7 @@ app.post('/api/reset-password', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Other APIs (Admin Panel)
+// Other APIs
 app.get('/admin/materials', async (req, res) => res.json(await Material.find()));
 app.post('/admin/add-material', async (req, res) => { await new Material(req.body).save(); res.json({ success: true }); });
 app.put('/admin/edit-material/:id', async (req, res) => { await Material.findByIdAndUpdate(req.params.id, req.body); res.json({ success: true }); });
