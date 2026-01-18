@@ -25,18 +25,18 @@ const Notice = require('./models/Notice');
 
 const Student = User; 
 
-// --- EMAIL CONFIGURATION (GMAIL SECURE FIX) ---
-// Render-এ Gmail ব্লকিং এড়ানোর জন্য এই কনফিগারেশনটি ব্যবহার করা হচ্ছে
+// --- EMAIL CONFIGURATION (OUTLOOK / HOTMAIL) ---
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465, // SSL পোর্ট
-    secure: true, // true দিতে হবে
+    host: "smtp.office365.com", // Outlook এর হোস্ট
+    port: 587, // Port 587
+    secure: false, // TLS ব্যবহার হবে
     auth: {
-        user: process.env.EMAIL_USER, // Render Env থেকে (আপনার জিমেইল)
-        pass: process.env.EMAIL_PASS  // Render Env থেকে (আপনার ১৬ অক্ষরের অ্যাপ পাসওয়ার্ড)
+        user: process.env.EMAIL_USER, // Render Env থেকে নিবে
+        pass: process.env.EMAIL_PASS  // Render Env থেকে নিবে
     },
     tls: {
-        rejectUnauthorized: false // এটি সার্ভার ব্লকিং এড়াতে সাহায্য করে
+        ciphers: 'SSLv3',
+        rejectUnauthorized: false // কানেকশন এরর এড়াতে
     }
 });
 
@@ -72,7 +72,7 @@ app.post('/api/signup', async (req, res) => {
         
         await user.save();
 
-        // Send Email via Gmail
+        // Send Email via Outlook
         const mailOptions = {
             from: `LMS Admin <${process.env.EMAIL_USER}>`, 
             to: email,
@@ -81,7 +81,7 @@ app.post('/api/signup', async (req, res) => {
         };
 
         try {
-            console.log("Attempting to send email via Gmail (Secure)..."); 
+            console.log("Attempting to send email via Outlook..."); 
             let info = await transporter.sendMail(mailOptions);
             console.log("✅ Email sent info: ", info);
             res.json({ success: true, message: "OTP sent to email. Please verify." });
