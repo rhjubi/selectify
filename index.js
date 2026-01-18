@@ -25,17 +25,19 @@ const Notice = require('./models/Notice');
 
 const Student = User; 
 
-// --- EMAIL CONFIGURATION (HARDCODED TEST - PORT 2525) ---
+// --- EMAIL CONFIGURATION (GMAIL SECURE FIX) ---
+// Render-এ Gmail ব্লকিং এড়ানোর জন্য এই কনফিগারেশনটি ব্যবহার করা হচ্ছে
 const transporter = nodemailer.createTransport({
-    host: 'smtp-relay.brevo.com',
-    port: 2525, // কানেকশন ঠিক আছে, তাই 2525 রাখা হলো
-    secure: false, 
+    host: 'smtp.gmail.com',
+    port: 465, // SSL পোর্ট
+    secure: true, // true দিতে হবে
     auth: {
-        user: 'rakib.u.habibee@gmail.com', // আপনার Brevo লগিন ইমেইল
-        pass: 'xsmtpsib-166af886f38905b2f9e72fdce6a9c214357497a7a9655e9e7ae3f2f9933da96f-jWPolqOKLzPdOcWi' // আপনার নতুন পাসওয়ার্ড সরাসরি বসানো হলো
+        user: process.env.EMAIL_USER, // Render Env থেকে (আপনার জিমেইল)
+        pass: process.env.EMAIL_PASS  // Render Env থেকে (আপনার ১৬ অক্ষরের অ্যাপ পাসওয়ার্ড)
     },
-    logger: true,
-    debug: true
+    tls: {
+        rejectUnauthorized: false // এটি সার্ভার ব্লকিং এড়াতে সাহায্য করে
+    }
 });
 
 // ৩. অথেনটিকেশন এপিআই
@@ -70,16 +72,16 @@ app.post('/api/signup', async (req, res) => {
         
         await user.save();
 
-        // Send Email via Brevo
+        // Send Email via Gmail
         const mailOptions = {
-            from: 'LMS Admin <rakib.u.habibee@gmail.com>', // সরাসরি ইমেইল বসানো হলো
+            from: `LMS Admin <${process.env.EMAIL_USER}>`, 
             to: email,
             subject: 'Verify Your Account - OTP',
             text: `Welcome ${name}! Your OTP for account verification is: ${otp}`
         };
 
         try {
-            console.log("Attempting to send email via Brevo (Hardcoded)..."); 
+            console.log("Attempting to send email via Gmail (Secure)..."); 
             let info = await transporter.sendMail(mailOptions);
             console.log("✅ Email sent info: ", info);
             res.json({ success: true, message: "OTP sent to email. Please verify." });
@@ -155,7 +157,7 @@ app.post('/api/forgot-password', async (req, res) => {
         await user.save();
 
         const mailOptions = {
-            from: 'LMS Admin <rakib.u.habibee@gmail.com>', 
+            from: `LMS Admin <${process.env.EMAIL_USER}>`, 
             to: email, 
             subject: 'Password Reset OTP',
             text: `Your OTP for password reset is: ${otp}`
