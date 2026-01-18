@@ -25,16 +25,19 @@ const Notice = require('./models/Notice');
 
 const Student = User; 
 
-// --- EMAIL CONFIGURATION (UPDATED) ---
+// --- EMAIL CONFIGURATION (FIXED FOR RENDER) ---
+// আগে service: 'gmail' ছিল, সেটা বদলে port 465 করা হলো
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,  // SSL Port (Render এ এটি ভালো কাজ করে)
+    secure: true, // true for 465, false for other ports
     auth: {
         user: 'rakib.u.habibee@gmail.com', // আপনার জিমেইল
-        pass: 'kdrb tlpr raqz qolu'    // আপনার অ্যাপ পাসওয়ার্ড (স্পেস থাকলেও সমস্যা নেই, তবে চেক করুন এটি ঠিক আছে কিনা)
+        pass: 'kdrb tlpr raqz qolu'    // আপনার অ্যাপ পাসওয়ার্ড
     }
 });
 
-// ৩. অথেনটিকেশন এপিআই (UPDATED)
+// ৩. অথেনটিকেশন এপিআই
 
 // Step 1: Signup Request (Sends OTP)
 app.post('/api/signup', async (req, res) => {
@@ -66,9 +69,9 @@ app.post('/api/signup', async (req, res) => {
         
         await user.save();
 
-        // Send Email (Async/Await ব্যবহার করা হয়েছে এরর ধরার জন্য)
+        // Send Email (Async/Await ব্যবহার করা হয়েছে এরর ধরার জন্য)
         const mailOptions = {
-            from: 'LMS Admin <rakib.u.habibee@gmail.com>', // FIX: নিজের ইমেইল ব্যবহার করুন
+            from: 'LMS Admin <rakib.u.habibee@gmail.com>',
             to: email,
             subject: 'Verify Your Account - OTP',
             text: `Welcome ${name}! Your OTP for account verification is: ${otp}`
@@ -150,7 +153,7 @@ app.post('/api/forgot-password', async (req, res) => {
         await user.save();
 
         const mailOptions = {
-            from: 'LMS Admin <rakib.u.habibee@gmail.com>', // FIX: নিজের ইমেইল
+            from: 'LMS Admin <rakib.u.habibee@gmail.com>', 
             to: email, 
             subject: 'Password Reset OTP',
             text: `Your OTP for password reset is: ${otp}`
