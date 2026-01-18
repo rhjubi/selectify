@@ -25,18 +25,15 @@ const Notice = require('./models/Notice');
 
 const Student = User; 
 
-// --- EMAIL CONFIGURATION (OUTLOOK / HOTMAIL) ---
+// --- EMAIL CONFIGURATION (BREVO - BUSINESS DOMAIN) ---
+// পোর্ট 587 ব্যবহার করা হচ্ছে যা বিজনেস ডোমেইনের জন্য বেস্ট
 const transporter = nodemailer.createTransport({
-    host: "smtp.office365.com", // Outlook এর হোস্ট
-    port: 587, // Port 587
-    secure: false, // TLS ব্যবহার হবে
+    host: 'smtp-relay.brevo.com',
+    port: 587,
+    secure: false, // true for 465, false for other ports
     auth: {
-        user: process.env.EMAIL_USER, // Render Env থেকে নিবে
-        pass: process.env.EMAIL_PASS  // Render Env থেকে নিবে
-    },
-    tls: {
-        ciphers: 'SSLv3',
-        rejectUnauthorized: false // কানেকশন এরর এড়াতে
+        user: process.env.EMAIL_USER, // Render Env থেকে আসবে (jubaer@nasir-group.biz)
+        pass: process.env.EMAIL_PASS  // Render Env থেকে আসবে (Brevo SMTP Key)
     }
 });
 
@@ -72,18 +69,19 @@ app.post('/api/signup', async (req, res) => {
         
         await user.save();
 
-        // Send Email via Outlook
+        // Send Email via Brevo
         const mailOptions = {
+            // Sender হতে হবে ভেরিফাইড ইমেইল (jubaer@nasir-group.biz)
             from: `LMS Admin <${process.env.EMAIL_USER}>`, 
-            to: email,
+            to: email, // গ্রাহকের ইমেইল
             subject: 'Verify Your Account - OTP',
             text: `Welcome ${name}! Your OTP for account verification is: ${otp}`
         };
 
         try {
-            console.log("Attempting to send email via Outlook..."); 
+            console.log("Attempting to send email via Brevo..."); 
             let info = await transporter.sendMail(mailOptions);
-            console.log("✅ Email sent info: ", info);
+            console.log("✅ Email sent info: ", info.messageId);
             res.json({ success: true, message: "OTP sent to email. Please verify." });
         } catch (mailError) {
             console.error("❌ Mail Sending Error Detail:", mailError);
@@ -186,7 +184,7 @@ app.post('/api/reset-password', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Other APIs
+// Other APIs (Admin Panel)
 app.get('/admin/materials', async (req, res) => res.json(await Material.find()));
 app.post('/admin/add-material', async (req, res) => { await new Material(req.body).save(); res.json({ success: true }); });
 app.put('/admin/edit-material/:id', async (req, res) => { await Material.findByIdAndUpdate(req.params.id, req.body); res.json({ success: true }); });
