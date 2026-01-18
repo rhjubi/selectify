@@ -25,19 +25,18 @@ const Notice = require('./models/Notice');
 
 const Student = User; 
 
-// --- EMAIL CONFIGURATION (DEBUG MODE & PORT 465) ---
+// --- EMAIL CONFIGURATION (UPDATED FOR PORT 587) ---
+// পোর্ট 587 এবং secure: false ব্যবহার করা হয়েছে যা ক্লাউড সার্ভারে ভালো কাজ করে
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // true for 465, false for other ports
-    logger: true, // এটি কনসোলে বিস্তারিত লগ দেখাবে
-    debug: true,  // এররের বিস্তারিত কারণ দেখাবে
+    port: 587,
+    secure: false, // 587 পোর্টের জন্য এটি false হতে হবে
     auth: {
         user: process.env.EMAIL_USER, // Render এর Environment Variable থেকে নিবে
         pass: process.env.EMAIL_PASS  // Render এর Environment Variable থেকে নিবে
     },
     tls: {
-        rejectUnauthorized: false // সার্ভার সার্টিফিকেট ইস্যু এড়াতে এটি দেওয়া হলো
+        rejectUnauthorized: false // কানেকশন এরর এড়াতে সাহায্য করে
     }
 });
 
@@ -82,12 +81,12 @@ app.post('/api/signup', async (req, res) => {
         };
 
         try {
-            console.log("Attempting to send email..."); // লগে দেখার জন্য
+            console.log("Attempting to send email..."); 
             let info = await transporter.sendMail(mailOptions);
-            console.log("✅ Email sent info: ", info); // সফল হলে ইনফো দেখাবে
+            console.log("✅ Email sent info: ", info);
             res.json({ success: true, message: "OTP sent to email. Please verify." });
         } catch (mailError) {
-            console.error("❌ Mail Sending Error Detail:", mailError); // বিস্তারিত এরর
+            console.error("❌ Mail Sending Error Detail:", mailError);
             return res.status(500).json({ error: "Failed to send OTP. Check server logs." });
         }
 
