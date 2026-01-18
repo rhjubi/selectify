@@ -25,16 +25,17 @@ const Notice = require('./models/Notice');
 
 const Student = User; 
 
-// --- EMAIL CONFIGURATION (BREVO - PORT 2525 FIX) ---
+// --- EMAIL CONFIGURATION (HARDCODED TEST) ---
 const transporter = nodemailer.createTransport({
     host: 'smtp-relay.brevo.com',
-    port: 2525, // FIX: 587 কাজ না করলে 2525 ব্যবহার করতে হয়
+    port: 2525, 
     secure: false, 
     auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
+        // আপনার Brevo লগইন ইমেইল
+        user: 'rakib.u.habibee@gmail.com', 
+        // আপনার দেওয়া নতুন পাসওয়ার্ড (সরাসরি বসানো হলো)
+        pass: 'xsmtpsib-166af886f38905b2f9e72fdce6a9c214357497a7a9655e9e7ae3f2f9933da96f-jWPolqOKLzPdOcWi'
     },
-    // ডিবাগিং-এর জন্য নিচের লাইনগুলো রাখা হলো, সমস্যা হলে বিস্তারিত লগ দেখাবে
     logger: true,
     debug: true
 });
