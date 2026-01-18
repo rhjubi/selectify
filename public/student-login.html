@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Student Access</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-slate-100 flex items-center justify-center min-h-screen">
+    
+    <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md relative">
+        
+        <div id="login-box">
+            <h2 class="text-2xl font-bold mb-6 text-center text-indigo-600">Student Login</h2>
+            <form onsubmit="handleLogin(event)">
+                <input type="email" id="log-email" placeholder="Email" required class="w-full border p-3 rounded-lg mb-4 outline-none focus:ring-2 focus:ring-indigo-500">
+                <input type="password" id="log-pass" placeholder="Password" required class="w-full border p-3 rounded-lg mb-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                
+                <div class="text-right mb-6">
+                    <button type="button" onclick="showForgotUI()" class="text-xs text-red-500 hover:underline">Forgot Password?</button>
+                </div>
+
+                <button type="submit" class="w-full bg-indigo-600 text-white p-3 rounded-lg font-bold hover:bg-indigo-700 transition">Login</button>
+            </form>
+            <p class="mt-4 text-center text-sm">Don't have an account? <button onclick="toggleAuth()" class="text-indigo-600 font-bold">Sign Up</button></p>
+        </div>
+
+        <div id="signup-box" class="hidden">
+            <h2 class="text-2xl font-bold mb-6 text-center text-green-600">Create Account</h2>
+            <form onsubmit="handleSignup(event)">
+                <input type="text" id="reg-name" placeholder="Full Name" required class="w-full border p-3 rounded-lg mb-4 outline-none focus:ring-2 focus:ring-green-500">
+                <input type="email" id="reg-email" placeholder="Email Address" required class="w-full border p-3 rounded-lg mb-4 outline-none focus:ring-2 focus:ring-green-500">
+                
+                <select id="reg-category" required class="w-full border p-3 rounded-lg mb-4 outline-none focus:ring-2 focus:ring-green-500 bg-white text-gray-700">
+                    <option value="" disabled selected>Select Category</option>
+                    <option value="OC">OC</option>
+                    <option value="Selective">Selective</option>
+                </select>
+
+                <input type="password" id="reg-pass" placeholder="Password" required class="w-full border p-3 rounded-lg mb-6 outline-none focus:ring-2 focus:ring-green-500">
+                <button type="submit" id="signup-btn" class="w-full bg-green-600 text-white p-3 rounded-lg font-bold hover:bg-green-700 transition">Sign Up & Verify</button>
+            </form>
+            <p class="mt-4 text-center text-sm">Already have an account? <button onclick="toggleAuth()" class="text-green-600 font-bold">Login</button></p>
+        </div>
+
+        <div id="verify-box" class="hidden absolute inset-0 bg-white p-8 rounded-2xl z-30 flex flex-col justify-center">
+            <h2 class="text-2xl font-bold mb-2 text-center text-indigo-600">Verify Email</h2>
+            <p class="text-center text-gray-500 text-sm mb-6">Enter the OTP sent to your email.</p>
+            <input type="text" id="verify-otp" placeholder="6-Digit OTP" class="w-full border p-3 rounded-lg mb-6 outline-none text-center text-xl font-bold tracking-widest">
+            <button onclick="verifySignup()" class="w-full bg-indigo-600 text-white p-3 rounded-lg font-bold hover:bg-indigo-700">Verify</button>
+            <button onclick="document.getElementById('verify-box').classList.add('hidden')" class="w-full mt-3 text-gray-400 text-sm hover:underline">Cancel</button>
+        </div>
+
+        <div id="forgot-box" class="hidden absolute inset-0 bg-white p-8 rounded-2xl z-20">
+            <button onclick="hideForgotUI()" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <div id="step-email">
+                <h2 class="text-xl font-bold mb-4 text-center text-red-500">Reset Password</h2>
+                <p class="text-sm text-gray-500 mb-4 text-center">Enter your registered email to receive OTP.</p>
+                <input type="email" id="reset-email" placeholder="Enter Email" class="w-full border p-3 rounded-lg mb-4 outline-none">
+                <button onclick="sendOTP()" id="send-otp-btn" class="w-full bg-red-500 text-white p-3 rounded-lg font-bold hover:bg-red-600">Send OTP</button>
+            </div>
+            <div id="step-otp" class="hidden">
+                <h2 class="text-xl font-bold mb-4 text-center text-green-600">Verify OTP</h2>
+                <input type="text" id="otp-code" placeholder="6-digit OTP" class="w-full border p-3 rounded-lg mb-4 outline-none text-center tracking-widest font-bold">
+                <input type="password" id="new-pass" placeholder="New Password" class="w-full border p-3 rounded-lg mb-4 outline-none">
+                <button onclick="resetPassword()" class="w-full bg-green-600 text-white p-3 rounded-lg font-bold hover:bg-green-700">Change Password</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let signupEmail = ""; // To store email for verification
+
+        function toggleAuth() {
+            document.getElementById('login-box').classList.toggle('hidden');
+            document.getElementById('signup-box').classList.toggle('hidden');
+        }
+
+        // --- SIGNUP & VERIFY ---
+        async function handleSignup(e) {
+            e.preventDefault();
+            const btn = document.getElementById('signup-btn');
+            const category = document.getElementById('reg-category').value;
+            
+            if(!category) return alert("Please select a category!");
+
+            btn.innerText = "Sending OTP...";
+            btn.disabled = true;
+
+            const payload = { 
+                name: document.getElementById('reg-name').value,
+                email: document.getElementById('reg-email').value,
+                password: document.getElementById('reg-pass').value,
+                category: category 
+            };
+            signupEmail = payload.email; // Save for verification
+
+            const res = await fetch('/api/signup', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            
+            btn.innerText = "Sign Up & Verify";
+            btn.disabled = false;
+
+            if(data.success) { 
+                document.getElementById('verify-box').classList.remove('hidden');
+            } else { 
+                alert(data.error); 
+            }
+        }
+
+        async function verifySignup() {
+            const otp = document.getElementById('verify-otp').value;
+            if(!otp) return alert("Enter OTP!");
+
+            const res = await fetch('/api/verify-signup', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ email: signupEmail, otp })
+            });
+            const data = await res.json();
+
+            if(data.success) {
+                alert("Verified! Please Login.");
+                location.reload(); // Refresh to show login
+            } else {
+                alert(data.error);
+            }
+        }
+
+        // --- LOGIN ---
+        async function handleLogin(e) {
+            e.preventDefault();
+            const payload = { 
+                email: document.getElementById('log-email').value,
+                password: document.getElementById('log-pass').value 
+            };
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if(data.success) {
+                localStorage.setItem('studentName', data.user.name);
+                localStorage.setItem('studentEmail', data.user.email);
+                localStorage.setItem('studentCategory', data.user.category); 
+                localStorage.setItem('showWarning', 'true');
+                window.location.href = '/student-dashboard.html';
+            } else { alert(data.error); }
+        }
+
+        // --- FORGOT PASSWORD ---
+        function showForgotUI() { document.getElementById('forgot-box').classList.remove('hidden'); document.getElementById('step-email').classList.remove('hidden'); document.getElementById('step-otp').classList.add('hidden'); }
+        function hideForgotUI() { document.getElementById('forgot-box').classList.add('hidden'); }
+
+        async function sendOTP() {
+            const email = document.getElementById('reset-email').value;
+            if(!email) return alert("Enter email first!");
+            const btn = document.getElementById('send-otp-btn'); btn.innerText = "Sending..."; btn.disabled = true;
+            const res = await fetch('/api/forgot-password', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email }) });
+            const data = await res.json();
+            btn.innerText = "Send OTP"; btn.disabled = false;
+            if(data.success) { alert("OTP Sent!"); document.getElementById('step-email').classList.add('hidden'); document.getElementById('step-otp').classList.remove('hidden'); } else { alert(data.error); }
+        }
+
+        async function resetPassword() {
+            const email = document.getElementById('reset-email').value;
+            const otp = document.getElementById('otp-code').value;
+            const newPassword = document.getElementById('new-pass').value;
+            if(!otp || !newPassword) return alert("Fill all fields!");
+            const res = await fetch('/api/reset-password', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email, otp, newPassword }) });
+            const data = await res.json();
+            if(data.success) { alert("Password changed! Login now."); hideForgotUI(); } else { alert(data.error); }
+        }
+    </script>
+</body>
+</html>

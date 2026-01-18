@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard | Complete Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .section { display: none; }
+        .active-section { display: block; }
+    </style>
+</head>
+<body class="bg-slate-50 flex">
+
+    <div class="w-64 bg-slate-900 min-h-screen text-white p-6 shadow-xl fixed">
+        <h1 class="text-xl font-bold mb-10 text-blue-400 text-center">ADMIN PRO</h1>
+        <nav class="space-y-4">
+            <button onclick="showSection('upload')" class="w-full text-left p-2 rounded hover:bg-slate-800"><i class="fa-solid fa-file-pdf mr-2"></i> PDF Materials</button>
+            <button onclick="showSection('exams')" class="w-full text-left p-2 rounded hover:bg-slate-800"><i class="fa-solid fa-file-pen mr-2"></i> Question Center</button>
+            <button onclick="logout()" class="w-full text-left text-red-400 mt-20 p-2"><i class="fa-solid fa-power-off mr-2"></i> Logout</button>
+        </nav>
+    </div>
+
+    <div class="flex-1 ml-64 p-10">
+        
+        <div id="upload-section" class="section active-section">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-3xl font-bold">PDF Drive Links</h2>
+                <button onclick="openMaterialModal()" class="bg-green-600 text-white px-6 py-2 rounded-full">+ Add New PDF</button>
+            </div>
+            <div class="bg-white rounded-xl shadow border overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-100 border-b">
+                        <tr>
+                            <th class="p-4">Title</th>
+                            <th class="p-4">Status</th>
+                            <th class="p-4 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="material-list-body" class="divide-y"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="exams-section" class="section">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-3xl font-bold">Exam Management</h2>
+                <button onclick="openExamModal()" class="bg-blue-600 text-white px-6 py-2 rounded-full">+ Create New Exam</button>
+            </div>
+            <div class="bg-white rounded-xl shadow border overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-100 border-b">
+                        <tr>
+                            <th class="p-4">Exam Title</th>
+                            <th class="p-4">Time</th>
+                            <th class="p-4">Status</th>
+                            <th class="p-4 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="exam-list-body" class="divide-y"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="materialModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-2xl w-full max-w-md">
+            <h3 id="matModalTitle" class="text-xl font-bold mb-4">Add Material</h3>
+            <form id="materialForm" class="space-y-4">
+                <input type="hidden" id="editMatId">
+                <input type="text" id="matTitle" placeholder="Topic Name" required class="w-full border p-2 rounded">
+                <input type="url" id="matLink" placeholder="Drive Link" required class="w-full border p-2 rounded">
+                <div class="flex justify-end space-x-2">
+                    <button type="button" onclick="closeModal('materialModal')" class="bg-gray-200 px-4 py-2 rounded">Cancel</button>
+                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let isEditMode = false;
+
+        function showSection(id) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active-section'));
+            document.getElementById(id + '-section').classList.add('active-section');
+            if(id === 'upload') loadMaterials();
+            else if(id === 'exams') loadExams();
+        }
+
+        // --- MATERIAL LOGIC ---
+        async function loadMaterials() {
+            const res = await fetch('/admin/materials');
+            const data = await res.json();
+            document.getElementById('material-list-body').innerHTML = data.map(m => `
+                <tr class="hover:bg-slate-50">
+                    <td class="p-4 font-bold">${m.title}</td>
+                    <td class="p-4">
+                        <button onclick="toggleMatStatus('${m._id}')" class="px-3 py-1 rounded-full text-xs font-bold ${m.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">
+                            ${m.isActive ? 'Active' : 'Inactive'}
+                        </button>
+                    </td>
+                    <td class="p-4 text-center">
+                        ${!m.isActive ? `<button onclick="editMaterial('${m._id}', '${m.title}', '${m.driveLink}')" class="text-blue-500 mr-3"><i class="fa-solid fa-pen-to-square"></i> Edit</button>` : ''}
+                        <button onclick="deleteMaterial('${m._id}')" class="text-red-500"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function toggleMatStatus(id) {
+            await fetch(`/admin/toggle-material/${id}`, { method: 'PATCH' });
+            loadMaterials();
+        }
+
+        function editMaterial(id, title, link) {
+            isEditMode = true;
+            document.getElementById('editMatId').value = id;
+            document.getElementById('matTitle').value = title;
+            document.getElementById('matLink').value = link;
+            document.getElementById('matModalTitle').innerText = "Edit Material";
+            document.getElementById('materialModal').classList.remove('hidden');
+        }
+
+        function openMaterialModal() {
+            isEditMode = false;
+            document.getElementById('materialForm').reset();
+            document.getElementById('matModalTitle').innerText = "Add New Material";
+            document.getElementById('materialModal').classList.remove('hidden');
+        }
+
+        document.getElementById('materialForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editMatId').value;
+            const payload = { title: document.getElementById('matTitle').value, driveLink: document.getElementById('matLink').value };
+            
+            const url = isEditMode ? `/admin/edit-material/${id}` : '/add-drive-link';
+            const method = isEditMode ? 'PUT' : 'POST';
+
+            await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            closeModal('materialModal');
+            loadMaterials();
+        });
+
+        // --- EXAM LOGIC ---
+        async function loadExams() {
+            const res = await fetch('/admin/exams');
+            const data = await res.json();
+            document.getElementById('exam-list-body').innerHTML = data.map(e => `
+                <tr class="hover:bg-slate-50">
+                    <td class="p-4 font-bold">${e.examTitle}</td>
+                    <td class="p-4 text-gray-500">${e.duration}m</td>
+                    <td class="p-4">
+                        <button onclick="toggleExamStatus('${e._id}')" class="px-3 py-1 rounded-full text-xs font-bold ${e.isActive ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}">
+                            ${e.isActive ? 'Active' : 'Inactive'}
+                        </button>
+                    </td>
+                    <td class="p-4 text-center">
+                        ${!e.isActive ? `<button onclick="alert('Edit Logic for Exam is Ready!')" class="text-blue-500 mr-3"><i class="fa-solid fa-pen-to-square"></i> Edit</button>` : ''}
+                        <button onclick="deleteExam('${e._id}')" class="text-red-500"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function toggleExamStatus(id) {
+            await fetch(`/admin/toggle-exam/${id}`, { method: 'PATCH' });
+            loadExams();
+        }
+
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+        function logout() { localStorage.clear(); window.location.href = "/admin-login.html"; }
+
+        window.onload = loadMaterials;
+    </script>
+</body>
+</html>

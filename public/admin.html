@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LMS Admin | Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        .sidebar-btn.active { background-color: #1e293b; border-left: 4px solid #3b82f6; }
+        .folder-card { cursor: pointer; transition: all 0.3s; }
+        .folder-card:hover { transform: scale(1.05); background-color: #f0f9ff; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .btn-disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+    </style>
+</head>
+<body class="bg-slate-50 flex">
+
+    <div id="categoryModal" class="fixed inset-0 bg-slate-900 bg-opacity-95 flex items-center justify-center z-50 fade-in">
+        <div class="bg-white p-10 rounded-2xl shadow-2xl text-center max-w-lg w-full border-4 border-indigo-500">
+            <h2 class="text-3xl font-bold text-slate-800 mb-2">Welcome Admin</h2>
+            <p class="text-gray-500 mb-8">Please select a category to manage</p>
+            <div class="grid grid-cols-2 gap-6">
+                <button onclick="selectCategory('OC')" class="p-6 border-2 border-indigo-100 hover:border-indigo-600 rounded-xl hover:bg-indigo-50 transition group">
+                    <i class="fa-solid fa-graduation-cap text-4xl text-indigo-400 group-hover:text-indigo-600 mb-3"></i>
+                    <h3 class="text-xl font-bold text-slate-700">OC</h3>
+                </button>
+                <button onclick="selectCategory('Selective')" class="p-6 border-2 border-purple-100 hover:border-purple-600 rounded-xl hover:bg-purple-50 transition group">
+                    <i class="fa-solid fa-medal text-4xl text-purple-400 group-hover:text-purple-600 mb-3"></i>
+                    <h3 class="text-xl font-bold text-slate-700">Selective</h3>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="w-64 bg-[#0f172a] min-h-screen text-white p-6 fixed shadow-2xl z-10 overflow-y-auto">
+        <h1 class="text-xl font-bold mb-2 text-blue-400 text-center tracking-widest uppercase">LMS Admin</h1>
+        <div class="text-center mb-8 bg-slate-800 p-3 rounded-xl border border-slate-700">
+            <p class="text-gray-400 text-xs uppercase mb-1">Current Mode</p>
+            <h3 id="active-category-display" class="text-xl font-bold text-white mb-2">---</h3>
+            <button onclick="switchCategory()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1 rounded transition w-full">
+                <i class="fa-solid fa-repeat"></i> Switch Category
+            </button>
+        </div>
+
+        <nav class="space-y-4">
+            <button onclick="showSection('upload')" id="btn-upload" class="sidebar-btn w-full text-left p-3 rounded transition flex items-center hover:bg-slate-800">
+                <i class="fa-solid fa-file-pdf mr-3 text-green-400"></i> PDF Materials
+            </button>
+            <button onclick="showSection('videos')" id="btn-videos" class="sidebar-btn w-full text-left p-3 rounded transition flex items-center hover:bg-slate-800">
+                <i class="fa-solid fa-video mr-3 text-red-400"></i> Video Classes
+            </button>
+            <button onclick="showSection('exams')" id="btn-exams" class="sidebar-btn w-full text-left p-3 rounded transition flex items-center hover:bg-slate-800">
+                <i class="fa-solid fa-file-pen mr-3 text-blue-400"></i> Question Center
+            </button>
+            <button onclick="showSection('notices')" id="btn-notices" class="sidebar-btn w-full text-left p-3 rounded transition flex items-center hover:bg-slate-800">
+                <i class="fa-solid fa-bullhorn mr-3 text-pink-400"></i> Notice Board
+            </button>
+            
+            <button onclick="showSection('writing-reviews')" id="btn-writing-reviews" class="sidebar-btn w-full text-left p-3 rounded transition flex items-center hover:bg-slate-800">
+                <i class="fa-solid fa-pen-nib mr-3 text-cyan-400"></i> Review Writings
+            </button>
+
+            <button onclick="showSection('students')" id="btn-students" class="sidebar-btn w-full text-left p-3 rounded transition flex items-center hover:bg-slate-800">
+                <i class="fa-solid fa-user-graduate mr-3 text-yellow-400"></i> Student List
+            </button>
+            <button onclick="showSection('results')" id="btn-results" class="sidebar-btn w-full text-left p-3 rounded transition flex items-center hover:bg-slate-800">
+                <i class="fa-solid fa-chart-line mr-3 text-purple-400"></i> Exam Results
+            </button>
+            <button onclick="showSection('leaderboard')" id="btn-leaderboard" class="sidebar-btn w-full text-left p-3 rounded transition flex items-center hover:bg-slate-800">
+                <i class="fa-solid fa-trophy mr-3 text-orange-400"></i> Leaderboard
+            </button>
+
+            <div class="pt-10">
+                <button onclick="logout()" class="w-full text-left p-3 text-red-400 font-bold hover:bg-red-900/20 rounded transition flex items-center">
+                    <i class="fa-solid fa-power-off mr-3"></i> Logout
+                </button>
+            </div>
+        </nav>
+    </div>
+
+    <div class="flex-1 ml-64 p-10 min-h-screen">
+        
+        <div id="upload-section" class="section hidden">
+            <h2 class="text-3xl font-bold text-[#1e293b] mb-6">PDF Materials <span id="cat-label-1" class="text-sm bg-gray-200 px-2 rounded align-middle"></span></h2>
+            <div id="pdf-subject-view" class="grid grid-cols-1 md:grid-cols-4 gap-6"></div>
+            <div id="pdf-list-view" class="hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <button onclick="backToPDFSubjects()" class="text-green-600 font-bold"><i class="fa-solid fa-arrow-left"></i> Back to Subjects</button>
+                    <div class="flex items-center gap-4">
+                        <span class="bg-green-100 text-green-700 px-4 py-2 rounded-lg font-bold text-sm">Files: <span id="pdf-count">0</span></span>
+                        <button onclick="openMaterialModal()" class="bg-[#10b981] text-white px-6 py-2 rounded-lg font-bold shadow-md hover:bg-green-600 transition">+ Upload PDF</button>
+                    </div>
+                </div>
+                <h3 id="pdf-breadcrumb" class="text-xl font-bold text-gray-700 mb-4 border-b pb-2"></h3>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 border-b text-xs font-bold text-slate-500 uppercase">
+                            <tr><th class="p-4">Title</th><th class="p-4 text-center">Status</th><th class="p-4 text-center">Action</th></tr>
+                        </thead>
+                        <tbody id="material-list-body" class="divide-y text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="videos-section" class="section hidden">
+            <h2 class="text-3xl font-bold text-[#1e293b] mb-6">Video Classes <span id="cat-label-5" class="text-sm bg-gray-200 px-2 rounded align-middle"></span></h2>
+            <div id="video-subject-view" class="grid grid-cols-1 md:grid-cols-4 gap-6"></div>
+            <div id="video-list-view" class="hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <button onclick="backToVideoSubjects()" class="text-red-600 font-bold"><i class="fa-solid fa-arrow-left"></i> Back to Subjects</button>
+                    <div class="flex items-center gap-4">
+                        <span class="bg-red-100 text-red-700 px-4 py-2 rounded-lg font-bold text-sm">Videos: <span id="video-count">0</span></span>
+                        <button onclick="openVideoModal()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold shadow-md hover:bg-red-700 transition">+ Add Video</button>
+                    </div>
+                </div>
+                <h3 id="video-breadcrumb" class="text-xl font-bold text-gray-700 mb-4 border-b pb-2"></h3>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 border-b text-xs font-bold text-slate-500 uppercase">
+                            <tr><th class="p-4">Title</th><th class="p-4 text-center">Status</th><th class="p-4 text-center">Action</th></tr>
+                        </thead>
+                        <tbody id="video-list-body" class="divide-y text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="notices-section" class="section hidden">
+            <h2 class="text-3xl font-bold text-[#1e293b] mb-6">Notice Board <span id="cat-label-6" class="text-sm bg-gray-200 px-2 rounded align-middle"></span></h2>
+            <div class="bg-white p-6 rounded-xl shadow-md border border-pink-100 mb-8">
+                <h3 class="text-lg font-bold text-slate-700 mb-4">📢 Post New Notice</h3>
+                <div class="grid grid-cols-1 gap-4">
+                    <input type="text" id="noticeTitle" placeholder="Notice Title (e.g. Exam Schedule)" class="w-full border p-3 rounded-lg outline-none">
+                    <textarea id="noticeMsg" rows="2" placeholder="Notice Details..." class="w-full border p-3 rounded-lg outline-none"></textarea>
+                    <div class="flex justify-end">
+                        <button onclick="saveNotice()" class="bg-pink-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-pink-700 transition">Post Notice</button>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-pink-50 border-b text-xs font-bold text-pink-700 uppercase">
+                        <tr><th class="p-4">Notice Title</th><th class="p-4">Message</th><th class="p-4 text-center">Date</th><th class="p-4 text-center">Action</th></tr>
+                    </thead>
+                    <tbody id="notice-list-body" class="divide-y text-sm"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="writing-reviews-section" class="section hidden">
+            <h2 class="text-3xl font-bold text-[#1e293b] mb-6">Pending Writing Reviews</h2>
+            <div class="bg-white rounded-xl shadow overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-cyan-50 border-b text-xs font-bold text-cyan-700 uppercase">
+                        <tr>
+                            <th class="p-4">Student</th>
+                            <th class="p-4">Exam Title</th>
+                            <th class="p-4 text-center">Date</th>
+                            <th class="p-4 text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="writing-review-body" class="divide-y text-sm"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="exams-section" class="section hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold text-[#1e293b]">Question Center <span id="cat-label-2" class="text-sm bg-gray-200 px-2 rounded align-middle"></span></h2>
+                <div id="term-controls" class="flex gap-2">
+                    <button onclick="addTerm()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-indigo-700">+ Add Term</button>
+                    <button onclick="clearTerms()" class="bg-red-100 text-red-600 px-4 py-2 rounded-lg font-bold text-sm hover:bg-red-200">Clear Terms & Data</button>
+                </div>
+            </div>
+            <div id="exam-term-view" class="grid grid-cols-1 md:grid-cols-4 gap-6"></div>
+            <div id="exam-subject-view" class="hidden">
+                <button onclick="backToExamTerms()" class="mb-4 text-blue-600 font-bold"><i class="fa-solid fa-arrow-left"></i> Back to Terms</button>
+                <div id="exam-subject-container" class="grid grid-cols-1 md:grid-cols-4 gap-6"></div>
+            </div>
+            <div id="exam-list-view" class="hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <button onclick="backToExamSubjects()" class="text-blue-600 font-bold"><i class="fa-solid fa-arrow-left"></i> Back to Subjects</button>
+                    <div class="flex items-center gap-4">
+                        <span class="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg font-bold text-sm">Exams: <span id="exam-count">0</span></span>
+                        <button onclick="openExamModal()" class="bg-[#3b82f6] text-white px-6 py-2 rounded-lg font-bold shadow-md hover:bg-blue-600 transition">+ Create Exam</button>
+                    </div>
+                </div>
+                <h3 id="exam-breadcrumb" class="text-xl font-bold text-gray-700 mb-4 border-b pb-2"></h3>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 border-b text-xs font-bold text-slate-500 uppercase">
+                            <tr><th class="p-4">Exam Name</th><th class="p-4 text-center">Status</th><th class="p-4 text-center">Action</th></tr>
+                        </thead>
+                        <tbody id="exam-list-body" class="divide-y text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="students-section" class="section hidden">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-3xl font-bold text-[#1e293b]">Registered Students <span id="cat-label-3" class="text-sm bg-gray-200 px-2 rounded align-middle"></span></h2>
+                <div class="flex items-center gap-4">
+                    <select id="studentSort" onchange="changeStudentSort()" class="border p-2 rounded-lg text-sm bg-white outline-none shadow-sm font-bold text-slate-600">
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                    </select>
+                    <select id="itemsPerPage" onchange="changeItemsPerPage()" class="border p-2 rounded-lg text-sm bg-white outline-none shadow-sm">
+                        <option value="10">10 per page</option>
+                        <option value="20" selected>20 per page</option>
+                        <option value="50">50 per page</option>
+                    </select>
+                    <span class="bg-yellow-100 text-yellow-700 px-4 py-2 rounded-lg font-bold text-sm">Total: <span id="s-count">0</span></span>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-4">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 border-b text-xs font-bold text-slate-500 uppercase">
+                        <tr><th class="p-4">Name</th><th class="p-4">Email Address</th><th class="p-4 text-center">Category</th><th class="p-4 text-center">Action</th></tr>
+                    </thead>
+                    <tbody id="student-list-body" class="divide-y text-sm"></tbody>
+                </table>
+            </div>
+
+            <div class="flex justify-between items-center p-2">
+                <button onclick="prevPage()" id="prevBtn" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-sm disabled:opacity-50 font-bold">Previous</button>
+                <span id="page-info" class="text-sm font-bold text-gray-600">Page 1</span>
+                <button onclick="nextPage()" id="nextBtn" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-sm disabled:opacity-50 font-bold">Next</button>
+            </div>
+        </div>
+
+        <div id="results-section" class="section hidden">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                <div class="flex items-center gap-4">
+                    <h2 class="text-3xl font-bold text-[#1e293b]">Exam Results</h2>
+                    <span class="bg-purple-100 text-purple-700 px-4 py-2 rounded-lg font-bold text-sm">Total: <span id="res-count">0</span></span>
+                </div>
+                <div class="flex items-center gap-3 bg-white p-4 rounded-xl shadow-sm border">
+                    <select id="resultSort" onchange="changeResultSort()" class="border p-2 rounded-lg text-sm bg-white outline-none shadow-sm font-bold text-slate-600">
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                    </select>
+
+                    <select id="resultItemsPerPage" onchange="changeResultItemsPerPage()" class="border p-2 rounded-lg text-sm bg-white outline-none shadow-sm">
+                        <option value="10">10 / page</option>
+                        <option value="20" selected>20 / page</option>
+                        <option value="50">50 / page</option>
+                    </select>
+
+                    <input type="date" id="fromDate" class="border p-2 rounded-lg text-sm outline-none">
+                    <input type="date" id="toDate" class="border p-2 rounded-lg text-sm outline-none">
+                    <button onclick="filterResults()" class="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold text-sm">Filter</button>
+                    <button onclick="downloadExcel()" class="bg-[#10b981] text-white px-4 py-2 rounded-lg font-bold flex items-center text-sm">
+                        <i class="fa-solid fa-file-excel mr-2"></i> Excel
+                    </button>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-4">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 border-b text-xs text-slate-500 font-bold uppercase">
+                        <tr>
+                            <th class="p-4"><input type="checkbox" id="selectAll" onclick="toggleAll(this)"></th>
+                            <th class="p-4">Student</th>
+                            <th class="p-4 text-center">Phone</th>
+                            <th class="p-4">Term</th>
+                            <th class="p-4">Subject</th>
+                            <th class="p-4">Exam Name</th>
+                            <th class="p-4 text-center">Score</th>
+                            <th class="p-4 text-center">Result</th>
+                            <th class="p-4 text-center">Date</th>
+                            <th class="p-4 text-center">Report</th>
+                        </tr>
+                    </thead>
+                    <tbody id="result-list-body" class="divide-y text-sm"></tbody>
+                </table>
+            </div>
+            
+            <div class="flex justify-between items-center p-2">
+                <button onclick="prevResultPage()" id="resPrevBtn" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-sm disabled:opacity-50 font-bold">Previous</button>
+                <span id="res-page-info" class="text-sm font-bold text-gray-600">Page 1</span>
+                <button onclick="nextResultPage()" id="resNextBtn" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-sm disabled:opacity-50 font-bold">Next</button>
+            </div>
+        </div>
+
+        <div id="leaderboard-section" class="section hidden">
+            <h2 class="text-3xl font-bold text-[#1e293b] mb-2">Student Leaderboard <span id="cat-label-4" class="text-sm bg-gray-200 px-2 rounded align-middle"></span></h2>
+            <p class="text-gray-500 mb-8">Ranking based on total marks obtained in all exams.</p>
+            
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-900 text-white border-b text-xs font-bold uppercase">
+                        <tr>
+                            <th class="p-4 text-center w-24">Rank</th>
+                            <th class="p-4">Student Name</th>
+                            <th class="p-4">Email</th>
+                            <th class="p-4 text-center">Exams Taken</th>
+                            <th class="p-4 text-center">Total Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body" class="divide-y text-sm"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="materialModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+        <div class="bg-white p-8 rounded-2xl w-full max-w-md shadow-2xl">
+            <h3 class="text-xl font-bold mb-4" id="matModalTitle">Add PDF</h3>
+            <div class="mb-3 text-sm text-gray-500">Adding to: <span id="pdf-target-info" class="font-bold text-indigo-600"></span></div>
+            <input type="text" id="matName" placeholder="File Name (e.g. Worksheet 1)" class="w-full border p-3 rounded-lg mb-4 outline-none">
+            <input type="text" id="matLink" placeholder="Drive Link" class="w-full border p-3 rounded-lg mb-6 outline-none">
+            <div class="flex justify-end gap-3">
+                <button onclick="closeMaterialModal()" class="px-4 py-2 text-gray-500">Cancel</button>
+                <button onclick="saveMaterial()" class="bg-green-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="videoModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+        <div class="bg-white p-8 rounded-2xl w-full max-w-md shadow-2xl">
+            <h3 class="text-xl font-bold mb-4 text-red-600" id="vidModalTitle">Add Video Class</h3>
+            <div class="mb-3 text-sm text-gray-500">Adding to: <span id="video-target-info" class="font-bold text-red-600"></span></div>
+            <input type="text" id="vidName" placeholder="Class Title (e.g. Algebra Part 1)" class="w-full border p-3 rounded-lg mb-4 outline-none">
+            <input type="text" id="vidLink" placeholder="YouTube/Drive Link" class="w-full border p-3 rounded-lg mb-6 outline-none">
+            <div class="flex justify-end gap-3">
+                <button onclick="closeVideoModal()" class="px-4 py-2 text-gray-500">Cancel</button>
+                <button onclick="saveVideo()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg">Save Video</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="examModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+        <div class="bg-white p-8 rounded-2xl w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h3 class="text-2xl font-bold mb-2 text-slate-800" id="examModalTitle">Create Exam</h3>
+            <div class="mb-4 text-sm text-gray-500">Creating in: <span id="exam-target-info" class="font-bold text-blue-600"></span></div>
+            
+            <div class="mb-4">
+                <label class="text-xs font-bold text-gray-500">Exam Type:</label>
+                <select id="examType" onchange="toggleExamType()" class="border p-2 rounded-lg text-sm bg-gray-50 outline-none w-full">
+                    <option value="MCQ">Multiple Choice (MCQ)</option>
+                    <option value="Writing">Writing / Subjective</option>
+                </select>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <input type="text" id="examName" placeholder="Exam Title" class="w-full border p-3 rounded-lg outline-none">
+                <input type="number" id="examTime" placeholder="Duration (Min)" class="w-full border p-3 rounded-lg outline-none">
+                <input type="number" id="negativeMark" step="0.25" placeholder="Negative Mark (e.g. 0.25)" class="w-full border p-3 rounded-lg outline-none text-red-600 font-bold">
+            </div>
+
+            <div class="border-t pt-6" id="questions-area">
+                <div id="mcq-controls" class="flex justify-between items-center mb-4">
+                    <h4 class="font-bold text-slate-700">Questions List</h4>
+                    <div class="flex gap-3">
+                        <button onclick="openImportModal()" class="text-green-600 font-bold hover:underline bg-green-50 px-3 py-1 rounded"><i class="fa-solid fa-file-excel mr-1"></i> Import from Excel</button>
+                        <button onclick="addQuestionField()" class="text-blue-600 font-bold hover:underline">+ Add MCQ</button>
+                    </div>
+                </div>
+                
+                <div id="writing-controls" class="hidden">
+                    <label class="block font-bold text-slate-700 mb-2">Writing Topic / Prompt:</label>
+                    <textarea id="writingPrompt" class="w-full border p-4 rounded-lg h-32 outline-none" placeholder="Write the topic description here..."></textarea>
+                </div>
+
+                <div id="q-container" class="space-y-8"></div>
+            </div>
+            <div class="flex justify-end gap-3 mt-10 sticky bottom-0 bg-white pt-4">
+                <button onclick="closeExamModal()" class="px-6 py-2 text-gray-400 font-bold">Cancel</button>
+                <button onclick="saveExam()" class="bg-blue-600 text-white px-8 py-2 rounded-lg font-bold shadow-lg">Save Exam</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="importModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+        <div class="bg-white p-8 rounded-2xl w-full max-w-lg shadow-2xl">
+            <h3 class="text-xl font-bold mb-4 text-green-700">Bulk Import Questions</h3>
+            <p class="text-sm text-gray-500 mb-6">Upload an Excel file to import questions instantly.</p>
+            
+            <div class="flex gap-4 mb-6">
+                <button onclick="downloadSampleExcel()" class="flex-1 bg-gray-100 hover:bg-gray-200 text-slate-700 py-3 rounded-lg font-bold border border-gray-300 flex justify-center items-center gap-2">
+                    <i class="fa-solid fa-download"></i> Download Sample
+                </button>
+            </div>
+
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center mb-6">
+                <input type="file" id="excelInput" accept=".xlsx, .xls" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 cursor-pointer">
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <button onclick="closeImportModal()" class="px-4 py-2 text-gray-500">Cancel</button>
+                <button onclick="processExcel()" class="bg-green-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg">Process & Add</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="gradingModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+        <div class="bg-white p-8 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h3 class="text-xl font-bold mb-4 text-cyan-700">Grade Student Answer</h3>
+            <p class="text-sm font-bold text-gray-500 mb-2">Student's Answer:</p>
+            <div id="studentAnswerDisplay" class="bg-gray-50 p-4 rounded border mb-6 text-sm h-60 overflow-y-auto whitespace-pre-wrap"></div>
+            
+            <div class="grid grid-cols-3 gap-4 mb-4">
+                <div class="col-span-1">
+                    <label class="block text-xs font-bold text-gray-500">Marks (Out of <span id="totalMarksDisplay"></span>)</label>
+                    <input type="number" id="givenScore" class="w-full border p-2 rounded outline-none font-bold text-lg">
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-bold text-gray-500">Feedback / Comments</label>
+                    <input type="text" id="adminFeedback" class="w-full border p-2 rounded outline-none" placeholder="Good effort, but check spelling...">
+                </div>
+            </div>
+            <input type="hidden" id="currentResultId">
+            <button onclick="submitGrade()" class="w-full bg-cyan-600 text-white py-3 rounded-lg font-bold">Submit Grade</button>
+            <button onclick="document.getElementById('gradingModal').classList.add('hidden')" class="w-full mt-2 text-gray-400 text-xs">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        let editMaterialId = null;
+        let editVideoId = null;
+        let editExamId = null;
+        let allResultsData = [];
+        let activeCategory = ""; 
+        let currentTerm = "";
+        let currentSubject = "";
+
+        // --- Pagination Variables ---
+        let allStudents = [];
+        let currentPage = 1;
+        let itemsPerPage = 20;
+        let studentSortOrder = 'newest';
+
+        let allResults = []; 
+        let resultPage = 1;
+        let resultItemsPerPage = 20;
+        let resultSortOrder = 'newest';
+
+        // --- Term Management ---
+        function getTermList() { return JSON.parse(localStorage.getItem(`adminTerms_${activeCategory}`)) || []; }
+        function addTerm() {
+            const terms = getTermList();
+            const nextNum = terms.length + 1;
+            terms.push(`Term ${nextNum}`);
+            localStorage.setItem(`adminTerms_${activeCategory}`, JSON.stringify(terms));
+            renderExamTerms(); 
+        }
+
+        async function clearTerms() {
+            if(!activeCategory) return alert("Please select a category first.");
+            if(confirm(`⚠️ DANGER: This will delete ALL terms and ALL EXAM DATA for '${activeCategory}'. This cannot be undone. Are you sure?`)) {
+                try {
+                    const res = await fetch('/admin/exams');
+                    const exams = await res.json();
+                    const examsToDelete = exams.filter(e => e.examTitle.endsWith(`[${activeCategory}]`));
+                    if(examsToDelete.length > 0) {
+                        const deletePromises = examsToDelete.map(exam => fetch(`/admin/delete-exam/${exam._id}`, { method: 'DELETE' }));
+                        await Promise.all(deletePromises);
+                    }
+                    localStorage.removeItem(`adminTerms_${activeCategory}`);
+                    renderExamTerms();
+                    alert(`Success! Deleted ${examsToDelete.length} exams and cleared terms for ${activeCategory}.`);
+                } catch (error) { console.error("Clear Terms Error:", error); alert("Failed to clear data."); }
+            }
+        }
+
+        function renderExamTerms() {
+            const terms = getTermList();
+            const container = document.getElementById('exam-term-view');
+            container.innerHTML = terms.length ? terms.map(t => `
+                <div onclick="openExamTerm('${t}')" class="folder-card bg-white p-8 rounded-xl shadow border border-gray-100 flex flex-col items-center justify-center gap-4">
+                    <i class="fa-solid fa-layer-group text-6xl text-purple-600"></i>
+                    <h3 class="text-xl font-bold text-gray-700">${t}</h3>
+                    <span class="text-xs text-gray-400 font-bold bg-gray-100 px-3 py-1 rounded-full">Open</span>
+                </div>
+            `).join('') : `<p class="col-span-4 text-center text-gray-400">No terms added for ${activeCategory}. Click "Add Term" to start.</p>`;
+        }
+
+        // --- Category Logic ---
+        function selectCategory(cat) {
+            activeCategory = cat;
+            document.getElementById('categoryModal').style.display = 'none';
+            document.getElementById('active-category-display').innerText = `Managing: ${cat}`;
+            ['cat-label-1', 'cat-label-2', 'cat-label-3', 'cat-label-4', 'cat-label-5', 'cat-label-6'].forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.innerText = cat;
+            });
+            
+            backToExamTerms();
+            backToPDFSubjects();
+            backToVideoSubjects();
+            renderExamTerms(); 
+            renderPDFSubjects(); 
+            renderVideoSubjects();
+            showSection('upload');
+        }
+        function switchCategory() {
+            const newCat = activeCategory === 'OC' ? 'Selective' : 'OC';
+            if(confirm(`Switch to ${newCat} Dashboard?`)) selectCategory(newCat);
+        }
+        function getSubjects() {
+            let subjects = ["Math", "Reading", "Thinking Skill"];
+            if (activeCategory === "Selective") subjects.push("Writing");
+            return subjects;
+        }
+
+        // --- View Logic ---
+        function showSection(id) {
+            document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
+            document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(id + '-section').classList.remove('hidden');
+            document.getElementById('btn-' + id).classList.add('active');
+
+            if(id === 'upload') {
+                document.getElementById('pdf-list-view').classList.add('hidden');
+                document.getElementById('pdf-subject-view').classList.remove('hidden');
+                renderPDFSubjects();
+            }
+            if(id === 'videos') {
+                document.getElementById('video-list-view').classList.add('hidden');
+                document.getElementById('video-subject-view').classList.remove('hidden');
+                renderVideoSubjects();
+            }
+            if(id === 'exams') {
+                document.getElementById('exam-subject-view').classList.add('hidden');
+                document.getElementById('exam-list-view').classList.add('hidden');
+                document.getElementById('exam-term-view').classList.remove('hidden');
+                document.getElementById('term-controls').classList.remove('hidden');
+                renderExamTerms();
+            }
+            if(id === 'notices') loadNotices();
+            if(id === 'writing-reviews') loadPendingReviews(); 
+            if(id === 'students') loadStudents();
+            if(id === 'results') loadResults();
+            if(id === 'leaderboard') loadLeaderboard();
+        }
+
+        // --- EXAM TYPE TOGGLE ---
+        function toggleExamType() {
+            const type = document.getElementById('examType').value;
+            if(type === 'Writing') {
+                document.getElementById('mcq-controls').classList.add('hidden');
+                document.getElementById('q-container').classList.add('hidden'); 
+                document.getElementById('writing-controls').classList.remove('hidden');
+                document.getElementById('negativeMark').disabled = true; 
+            } else {
+                document.getElementById('mcq-controls').classList.remove('hidden');
+                document.getElementById('q-container').classList.remove('hidden');
+                document.getElementById('writing-controls').classList.add('hidden');
+                document.getElementById('negativeMark').disabled = false;
+            }
+        }
+
+        // ================= WRITING REVIEW LOGIC =================
+        async function loadPendingReviews() {
+            const res = await fetch('/admin/pending-writings');
+            const data = await res.json();
+            const container = document.getElementById('writing-review-body');
+            
+            if(data.length === 0) {
+                container.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-gray-400">No pending reviews.</td></tr>`;
+                return;
+            }
+
+            container.innerHTML = data.map(r => `
+                <tr class="hover:bg-cyan-50">
+                    <td class="p-4 font-bold text-slate-700">${r.studentName}<br><span class="text-xs text-gray-400">${r.studentEmail}</span></td>
+                    <td class="p-4 text-sm">${r.examTitle}</td>
+                    <td class="p-4 text-center text-xs">${new Date(r.completedAt).toLocaleDateString()}</td>
+                    <td class="p-4 text-center">
+                        <button onclick="openGradingModal('${r._id}', '${escape(r.submittedText)}', ${r.totalScore})" class="bg-cyan-600 text-white px-3 py-1 rounded text-xs font-bold">Grade</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openGradingModal(id, text, total) {
+            document.getElementById('gradingModal').classList.remove('hidden');
+            document.getElementById('currentResultId').value = id;
+            document.getElementById('studentAnswerDisplay').innerText = unescape(text);
+            document.getElementById('totalMarksDisplay').innerText = total;
+        }
+
+        async function submitGrade() {
+            const id = document.getElementById('currentResultId').value;
+            const score = document.getElementById('givenScore').value;
+            const feedback = document.getElementById('adminFeedback').value;
+
+            await fetch('/admin/grade-writing', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ resultId: id, score, feedback })
+            });
+            document.getElementById('gradingModal').classList.add('hidden');
+            loadPendingReviews();
+            alert("Graded Successfully!");
+        }
+
+        // ================= BULK IMPORT LOGIC =================
+        function openImportModal() { document.getElementById('importModal').classList.remove('hidden'); }
+        function closeImportModal() { document.getElementById('importModal').classList.add('hidden'); }
+
+        function downloadSampleExcel() {
+            const textData = [{ "Question Text": "What is 2+2?", "Question Image (Link/Base64)": "", "Option 1": "3", "Option 1 Image": "", "Option 2": "4", "Option 2 Image": "", "Option 3": "5", "Option 3 Image": "", "Option 4": "6", "Option 4 Image": "", "Correct Option (1-4)": 2 }];
+            const imgData = [{ "Question Text": "Identify the shape", "Question Image (Link/Base64)": "https://example.com/square.png", "Option 1": "Circle", "Option 1 Image": "", "Option 2": "Square", "Option 2 Image": "", "Option 3": "Triangle", "Option 3 Image": "", "Option 4": "None", "Option 4 Image": "", "Correct Option (1-4)": 2 }];
+            const wb = XLSX.utils.book_new();
+            const ws1 = XLSX.utils.json_to_sheet(textData);
+            const ws2 = XLSX.utils.json_to_sheet(imgData);
+            XLSX.utils.book_append_sheet(wb, ws1, "Text_Demo");
+            XLSX.utils.book_append_sheet(wb, ws2, "Image_Demo");
+            XLSX.writeFile(wb, "Questions_Sample.xlsx");
+        }
+
+        function processExcel() {
+            const input = document.getElementById('excelInput');
+            if(!input.files.length) return alert("Select a file first");
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                workbook.SheetNames.forEach(sheetName => {
+                    const sheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(sheet);
+                    json.forEach(row => {
+                        const qData = {
+                            questionText: row["Question Text"] || "",
+                            questionImg: row["Question Image (Link/Base64)"] || "",
+                            options: [ row["Option 1"] || "", row["Option 2"] || "", row["Option 3"] || "", row["Option 4"] || "" ],
+                            optionImages: [ row["Option 1 Image"] || "", row["Option 2 Image"] || "", row["Option 3 Image"] || "", row["Option 4 Image"] || "" ],
+                            correctOption: (parseInt(row["Correct Option (1-4)"]) - 1) || 0
+                        };
+                        addQuestionField(qData);
+                    });
+                });
+                closeImportModal();
+                alert("Questions imported! Please review and save.");
+            };
+            reader.readAsArrayBuffer(input.files[0]);
+        }
+
+        // ================= NOTICE BOARD LOGIC =================
+        async function loadNotices() {
+            try {
+                const res = await fetch('/admin/notices');
+                const data = await res.json();
+                const filtered = data.filter(n => n.title.endsWith(`[${activeCategory}]`));
+                document.getElementById('notice-list-body').innerHTML = filtered.map(n => {
+                    let displayTitle = n.title.replace(` [${activeCategory}]`, '');
+                    return `<tr class="hover:bg-pink-50 transition"><td class="p-4 font-bold text-slate-700">${displayTitle}</td><td class="p-4 text-slate-600 text-sm truncate max-w-xs">${n.message}</td><td class="p-4 text-center text-xs text-slate-500">${new Date(n.date).toLocaleDateString()}</td><td class="p-4 text-center"><button onclick="deleteNotice('${n._id}')" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+                }).join('');
+            } catch (e) { console.error(e); }
+        }
+        async function saveNotice() {
+            const title = document.getElementById('noticeTitle').value;
+            const message = document.getElementById('noticeMsg').value;
+            if(!title || !message) return alert("Fill all fields");
+            const finalTitle = `${title} [${activeCategory}]`;
+            await fetch('/admin/add-notice', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ title: finalTitle, message, date: new Date().toISOString() }) });
+            document.getElementById('noticeTitle').value = ""; document.getElementById('noticeMsg').value = ""; loadNotices(); alert("Notice Posted!");
+        }
+        async function deleteNotice(id) { if(confirm("Delete Notice?")) { await fetch(`/admin/delete-notice/${id}`, { method: 'DELETE' }); loadNotices(); } }
+
+        // ================= LEADERBOARD LOGIC =================
+        async function loadLeaderboard() {
+            const tbody = document.getElementById('leaderboard-body');
+            tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center">Loading ranking...</td></tr>';
+            try {
+                const [studRes, resultRes] = await Promise.all([fetch('/admin/students'), fetch('/admin/results')]);
+                const allSt = await studRes.json();
+                const allRes = await resultRes.json();
+                const categoryStudents = allSt.filter(s => s.category === activeCategory);
+                const rankingData = categoryStudents.map(student => {
+                    const studentResults = allRes.filter(r => r.studentEmail === student.email);
+                    const totalScore = studentResults.reduce((sum, r) => sum + (r.score || 0), 0);
+                    return { name: student.name, email: student.email, examsCount: studentResults.length, totalScore: totalScore };
+                });
+                rankingData.sort((a, b) => b.totalScore - a.totalScore);
+                if(rankingData.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-gray-500">No student data found for leaderboard.</td></tr>'; return; }
+                tbody.innerHTML = rankingData.map((data, index) => {
+                    let badge = index + 1;
+                    if(index === 0) badge = `<span class="rank-badge-1"><i class="fa-solid fa-crown"></i> 1</span>`;
+                    else if(index === 1) badge = `<span class="rank-badge-2">2</span>`;
+                    else if(index === 2) badge = `<span class="rank-badge-3">3</span>`;
+                    return `<tr class="hover:bg-slate-50 border-b"><td class="p-4 text-center font-bold text-gray-600">${badge}</td><td class="p-4 font-bold text-slate-700">${data.name}</td><td class="p-4 text-slate-500 text-xs">${data.email}</td><td class="p-4 text-center font-bold text-blue-600">${data.examsCount}</td><td class="p-4 text-center font-black text-indigo-700 text-lg">${data.totalScore}</td></tr>`;
+                }).join('');
+            } catch (error) { console.error(error); tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-red-500">Error loading leaderboard.</td></tr>'; }
+        }
+
+        // --- Navigation ---
+        function openExamTerm(term) {
+            currentTerm = term;
+            document.getElementById('exam-term-view').classList.add('hidden');
+            document.getElementById('term-controls').classList.add('hidden');
+            document.getElementById('exam-subject-view').classList.remove('hidden');
+            document.getElementById('exam-subject-container').innerHTML = getSubjects().map(s => `
+                <div onclick="openExamSubject('${s}')" class="folder-card bg-white p-8 rounded-xl shadow border border-gray-100 flex flex-col items-center justify-center gap-4">
+                    <i class="fa-solid fa-file-pen text-6xl text-blue-400"></i>
+                    <h3 class="text-xl font-bold text-gray-700">${s}</h3>
+                    <span class="text-xs text-gray-400 font-bold bg-gray-100 px-3 py-1 rounded-full">${currentTerm}</span>
+                </div>
+            `).join('');
+        }
+        function openExamSubject(subject) {
+            currentSubject = subject;
+            document.getElementById('exam-subject-view').classList.add('hidden');
+            document.getElementById('exam-list-view').classList.remove('hidden');
+            document.getElementById('exam-breadcrumb').innerText = `${activeCategory} > ${currentTerm} > ${currentSubject}`;
+            loadExams();
+        }
+        function renderPDFSubjects() {
+            const subjects = getSubjects();
+            let pdfSubs = [...subjects, "Discussion"]; 
+            document.getElementById('pdf-subject-view').innerHTML = pdfSubs.map(s => `
+                <div onclick="openPDFSubject('${s}')" class="folder-card bg-white p-8 rounded-xl shadow border border-gray-100 flex flex-col items-center justify-center gap-4">
+                    <i class="fa-solid fa-folder-open text-6xl text-yellow-400"></i>
+                    <h3 class="text-xl font-bold text-gray-700">${s}</h3>
+                    <span class="text-xs text-gray-400 font-bold bg-gray-100 px-3 py-1 rounded-full">Materials</span>
+                </div>
+            `).join('');
+        }
+        function openPDFSubject(subject) {
+            currentSubject = subject;
+            document.getElementById('pdf-subject-view').classList.add('hidden');
+            document.getElementById('pdf-list-view').classList.remove('hidden');
+            document.getElementById('pdf-breadcrumb').innerText = `${activeCategory} > ${currentSubject}`;
+            loadMaterials();
+        }
+        function renderVideoSubjects() {
+            const subjects = getSubjects();
+            let vidSubs = [...subjects, "Discussion"]; 
+            document.getElementById('video-subject-view').innerHTML = vidSubs.map(s => `
+                <div onclick="openVideoSubject('${s}')" class="folder-card bg-white p-8 rounded-xl shadow border border-gray-100 flex flex-col items-center justify-center gap-4">
+                    <i class="fa-solid fa-clapperboard text-6xl text-red-400"></i>
+                    <h3 class="text-xl font-bold text-gray-700">${s}</h3>
+                    <span class="text-xs text-gray-400 font-bold bg-gray-100 px-3 py-1 rounded-full">Videos</span>
+                </div>
+            `).join('');
+        }
+        function openVideoSubject(subject) {
+            currentSubject = subject;
+            document.getElementById('video-subject-view').classList.add('hidden');
+            document.getElementById('video-list-view').classList.remove('hidden');
+            document.getElementById('video-breadcrumb').innerText = `${activeCategory} > ${currentSubject}`;
+            loadVideos();
+        }
+        function backToVideoSubjects() {
+            document.getElementById('video-list-view').classList.add('hidden');
+            document.getElementById('video-subject-view').classList.remove('hidden');
+        }
+
+        // --- Data Loading ---
+        async function loadExams() {
+            const res = await fetch('/admin/exams');
+            const data = await res.json();
+            let filtered = data.filter(e => 
+                e.examTitle.endsWith(`[${activeCategory}]`) &&
+                e.examTitle.includes(currentTerm) && 
+                e.examTitle.includes(currentSubject)
+            );
+            document.getElementById('exam-count').innerText = filtered.length;
+            document.getElementById('exam-list-body').innerHTML = filtered.map(e => {
+                let displayTitle = e.examTitle.replace(` [${activeCategory}]`, '');
+                displayTitle = displayTitle.split(' - ').pop();
+                return `
+                <tr>
+                    <td class="p-4 font-bold">${displayTitle}</td>
+                    <td class="p-4 text-center">
+                        <button onclick="toggleExamStatus('${e._id}')" class="px-4 py-1 rounded-full text-[10px] font-bold uppercase ${e.isActive ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}">${e.isActive ? 'Active' : 'Inactive'}</button>
+                    </td>
+                    <td class="p-4 text-center">
+                        <button onclick="openEditExam('${e._id}')" class="text-blue-500 mr-4 ${e.isActive ? 'btn-disabled text-gray-300' : ''}"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteExam('${e._id}')" class="text-red-400"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        async function loadMaterials() {
+            const res = await fetch('/admin/materials');
+            const data = await res.json();
+            let filtered = data.filter(m => {
+                if (!m.title.endsWith(`[${activeCategory}]`)) return false;
+                if (currentSubject === "Discussion") return !getSubjects().some(s => m.title.includes(s));
+                return m.title.includes(currentSubject);
+            });
+            document.getElementById('pdf-count').innerText = filtered.length;
+            document.getElementById('material-list-body').innerHTML = filtered.map(m => {
+                let displayTitle = m.title.replace(` [${activeCategory}]`, '');
+                displayTitle = displayTitle.split(' - ').pop();
+                return `
+                <tr>
+                    <td class="p-4 font-bold text-slate-700">${displayTitle}</td>
+                    <td class="p-4 text-center">
+                        <button onclick="toggleMatStatus('${m._id}')" class="px-4 py-1 rounded-full text-[10px] font-bold uppercase ${m.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${m.isActive ? 'Active' : 'Inactive'}</button>
+                    </td>
+                    <td class="p-4 text-center">
+                        <button onclick="openEditMaterial('${m._id}', '${m.title}', '${m.driveLink}')" class="text-blue-500 mr-4 ${m.isActive ? 'btn-disabled text-gray-300' : ''}"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteMaterial('${m._id}')" class="text-red-400"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        async function loadVideos() {
+            const res = await fetch('/admin/videos'); 
+            const data = await res.json();
+            let filtered = data.filter(v => {
+                if (!v.title.endsWith(`[${activeCategory}]`)) return false;
+                if (currentSubject === "Discussion") return !getSubjects().some(s => v.title.includes(s));
+                return v.title.includes(currentSubject);
+            });
+            document.getElementById('video-count').innerText = filtered.length;
+            document.getElementById('video-list-body').innerHTML = filtered.map(v => {
+                let displayTitle = v.title.replace(` [${activeCategory}]`, '');
+                displayTitle = displayTitle.split(' - ').pop();
+                return `
+                <tr>
+                    <td class="p-4 font-bold text-slate-700">${displayTitle}</td>
+                    <td class="p-4 text-center">
+                        <button onclick="toggleVideoStatus('${v._id}')" class="px-4 py-1 rounded-full text-[10px] font-bold uppercase ${v.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${v.isActive ? 'Active' : 'Inactive'}</button>
+                    </td>
+                    <td class="p-4 text-center">
+                        <button onclick="openEditVideo('${v._id}', '${v.title}', '${v.link}')" class="text-blue-500 mr-4 ${v.isActive ? 'btn-disabled text-gray-300' : ''}"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteVideo('${v._id}')" class="text-red-400"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        // --- FIXED: Back to Exam Subjects ---
+        function backToExamTerms() {
+            document.getElementById('exam-subject-view').classList.add('hidden');
+            document.getElementById('exam-term-view').classList.remove('hidden');
+            document.getElementById('term-controls').classList.remove('hidden');
+        }
+        
+        function backToExamSubjects() {
+            // Hide the exam list view
+            document.getElementById('exam-list-view').classList.add('hidden');
+            // Show the exam subject folders view
+            document.getElementById('exam-subject-view').classList.remove('hidden');
+            
+            // Re-render the subject folders to ensure they are visible
+            // We use the globally stored currentTerm variable
+            if(currentTerm) {
+                document.getElementById('exam-subject-container').innerHTML = getSubjects().map(s => `
+                    <div onclick="openExamSubject('${s}')" class="folder-card bg-white p-8 rounded-xl shadow border border-gray-100 flex flex-col items-center justify-center gap-4">
+                        <i class="fa-solid fa-file-pen text-6xl text-blue-400"></i>
+                        <h3 class="text-xl font-bold text-gray-700">${s}</h3>
+                        <span class="text-xs text-gray-400 font-bold bg-gray-100 px-3 py-1 rounded-full">${currentTerm}</span>
+                    </div>
+                `).join('');
+            }
+        }
+        
+        function backToPDFSubjects() {
+            document.getElementById('pdf-list-view').classList.add('hidden');
+            document.getElementById('pdf-subject-view').classList.remove('hidden');
+        }
+        function backToVideoSubjects() {
+            document.getElementById('video-list-view').classList.add('hidden');
+            document.getElementById('video-subject-view').classList.remove('hidden');
+        }
+
+        // --- UPDATED SAVE EXAM ---
+        async function saveExam() {
+            let finalTitle = document.getElementById('examName').value;
+            finalTitle = `${currentTerm} - ${currentSubject} - ${finalTitle} [${activeCategory}]`;
+            const type = document.getElementById('examType').value;
+            
+            let questions = [];
+            if(type === 'MCQ') {
+                questions = Array.from(document.querySelectorAll('.q-block')).map(b => ({
+                    questionText: b.querySelector('.q-txt').value,
+                    questionImg: b.querySelector('.q-img-hidden').value,
+                    options: [b.querySelector('.opt-1').value, b.querySelector('.opt-2').value, b.querySelector('.opt-3').value, b.querySelector('.opt-4').value],
+                    optionImages: [b.querySelector('.opt1-img-hidden').value, b.querySelector('.opt2-img-hidden').value, b.querySelector('.opt3-img-hidden').value, b.querySelector('.opt4-img-hidden').value],
+                    correctOption: parseInt(b.querySelector('.correct-ans').value)
+                }));
+            } else {
+                // Writing Logic: Save prompt as 1st question text
+                questions = [{ questionText: document.getElementById('writingPrompt').value }];
+            }
+
+            const payload = { 
+                examTitle: finalTitle, 
+                examTime: document.getElementById('examTime').value, 
+                negativeMarks: document.getElementById('negativeMark').value,
+                type: type, // SAVE TYPE
+                questions 
+            };
+            const url = editExamId ? `/admin/edit-exam/${editExamId}` : '/admin/create-exam';
+            await fetch(url, { method: editExamId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            closeExamModal(); loadExams();
+        }
+
+        async function saveMaterial() {
+            const name = document.getElementById('matName').value;
+            const finalTitle = `${currentSubject} - ${name} [${activeCategory}]`;
+            const payload = { title: finalTitle, driveLink: document.getElementById('matLink').value };
+            const url = editMaterialId ? `/admin/edit-material/${editMaterialId}` : '/admin/add-material';
+            await fetch(url, { method: editMaterialId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            closeMaterialModal(); loadMaterials();
+        }
+
+        async function saveVideo() {
+            const name = document.getElementById('vidName').value;
+            const finalTitle = `${currentSubject} - ${name} [${activeCategory}]`;
+            const payload = { title: finalTitle, link: document.getElementById('vidLink').value };
+            const url = editVideoId ? `/admin/edit-video/${editVideoId}` : '/admin/add-video';
+            await fetch(url, { method: editVideoId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            closeVideoModal(); loadVideos();
+        }
+
+        function openMaterialModal() {
+            editMaterialId = null;
+            document.getElementById('matModalTitle').innerText = "Add PDF";
+            document.getElementById('pdf-target-info').innerText = `${activeCategory} > ${currentSubject}`;
+            document.getElementById('matName').value = ""; document.getElementById('matLink').value = "";
+            document.getElementById('materialModal').classList.remove('hidden');
+        }
+        function openEditMaterial(id, title, link) {
+            editMaterialId = id;
+            document.getElementById('matModalTitle').innerText = "Edit PDF";
+            document.getElementById('pdf-target-info').innerText = `${activeCategory} > ${currentSubject}`;
+            let cleanTitle = title.replace(` [${activeCategory}]`, '');
+            cleanTitle = cleanTitle.split(' - ').pop();
+            document.getElementById('matName').value = cleanTitle;
+            document.getElementById('matLink').value = link;
+            document.getElementById('materialModal').classList.remove('hidden');
+        }
+
+        function openVideoModal() {
+            editVideoId = null;
+            document.getElementById('vidModalTitle').innerText = "Add Video Class";
+            document.getElementById('video-target-info').innerText = `${activeCategory} > ${currentSubject}`;
+            document.getElementById('vidName').value = ""; document.getElementById('vidLink').value = "";
+            document.getElementById('videoModal').classList.remove('hidden');
+        }
+        function openEditVideo(id, title, link) {
+            editVideoId = id;
+            document.getElementById('vidModalTitle').innerText = "Edit Video Class";
+            document.getElementById('video-target-info').innerText = `${activeCategory} > ${currentSubject}`;
+            let cleanTitle = title.replace(` [${activeCategory}]`, '');
+            cleanTitle = cleanTitle.split(' - ').pop();
+            document.getElementById('vidName').value = cleanTitle;
+            document.getElementById('vidLink').value = link;
+            document.getElementById('videoModal').classList.remove('hidden');
+        }
+        function closeVideoModal() { document.getElementById('videoModal').classList.add('hidden'); }
+
+        function openExamModal() {
+            editExamId = null;
+            document.getElementById('examModalTitle').innerText = "Create Exam";
+            document.getElementById('exam-target-info').innerText = `${activeCategory} > ${currentTerm} > ${currentSubject}`;
+            document.getElementById('examName').value = ""; 
+            document.getElementById('examTime').value = "";
+            document.getElementById('negativeMark').value = ""; 
+            document.getElementById('q-container').innerHTML = ""; addQuestionField();
+            document.getElementById('examModal').classList.remove('hidden');
+            // Reset to MCQ Default
+            document.getElementById('examType').value = "MCQ";
+            toggleExamType();
+        }
+        function closeMaterialModal() { document.getElementById('materialModal').classList.add('hidden'); }
+        function closeExamModal() { document.getElementById('examModal').classList.add('hidden'); }
+        
+        async function openEditExam(id) {
+            editExamId = id;
+            document.getElementById('examModalTitle').innerText = "Edit Exam";
+            document.getElementById('q-container').innerHTML = "";
+            document.getElementById('examModal').classList.remove('hidden');
+            const res = await fetch('/admin/exams');
+            const all = await res.json();
+            const exam = all.find(e => e._id === id);
+            let cleanTitle = exam.examTitle.replace(` [${activeCategory}]`, '');
+            cleanTitle = cleanTitle.split(' - ').pop();
+            
+            document.getElementById('examName').value = cleanTitle;
+            document.getElementById('examTime').value = exam.examTime;
+            document.getElementById('negativeMark').value = exam.negativeMarks || 0; 
+            
+            // Handle Type
+            document.getElementById('examType').value = exam.type || "MCQ";
+            toggleExamType();
+
+            if(exam.type === 'Writing') {
+                document.getElementById('writingPrompt').value = exam.questions[0].questionText;
+            } else {
+                exam.questions.forEach(q => addQuestionField(q));
+            }
+        }
+
+        function addQuestionField(data = null) {
+            const div = document.createElement('div');
+            div.className = "p-6 bg-slate-50 rounded-xl border relative q-block";
+            div.innerHTML = `
+                <button onclick="this.parentElement.remove()" class="absolute top-2 right-2 text-red-400 hover:text-red-600"><i class="fa-solid fa-circle-xmark text-xl"></i></button>
+                <label class="block text-xs font-bold text-gray-500 mb-1">Question:</label>
+                <div class="flex gap-2 mb-3">
+                    <input type="text" placeholder="Type Question Here..." class="q-txt w-full p-3 border rounded-lg outline-none" value="${data ? data.questionText : ''}">
+                    <label class="cursor-pointer bg-gray-200 hover:bg-gray-300 p-3 rounded-lg"><i class="fa-solid fa-image"></i><input type="file" class="hidden" onchange="convertBase64(this, 'q-img-hidden', 'q-preview')"></label>
+                </div>
+                <input type="hidden" class="q-img-hidden" value="${data && data.questionImg ? data.questionImg : ''}">
+                <div class="q-preview mb-4 ${data && data.questionImg ? '' : 'hidden'}">${data && data.questionImg ? `<img src="${data.questionImg}" class="h-24 rounded border">` : ''}</div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    ${[0, 1, 2, 3].map(i => `
+                        <div class="flex gap-2 items-center">
+                            <div class="flex-1">
+                                <div class="flex gap-1">
+                                    <input type="text" placeholder="Option ${i+1}" class="opt-${i+1} w-full p-2 border rounded text-sm" value="${data ? data.options[i] : ''}">
+                                    <label class="cursor-pointer bg-slate-200 hover:bg-slate-300 px-2 py-1 rounded"><i class="fa-regular fa-image text-xs"></i><input type="file" class="hidden" onchange="convertBase64(this, 'opt${i+1}-img-hidden', 'opt${i+1}-preview')"></label>
+                                </div>
+                                <input type="hidden" class="opt${i+1}-img-hidden" value="${data && data.optionImages ? data.optionImages[i] : ''}">
+                                <div class="opt${i+1}-preview mt-1 ${data && data.optionImages && data.optionImages[i] ? '' : 'hidden'}">${data && data.optionImages && data.optionImages[i] ? `<img src="${data.optionImages[i]}" class="h-10 rounded border">` : ''}</div>
+                            </div>
+                        </div>`).join('')}
+                </div>
+                <div class="mt-4 flex items-center gap-3 bg-white p-2 rounded border w-fit">
+                    <span class="text-xs font-bold text-green-600">Correct Answer:</span>
+                    <select class="correct-ans p-1 bg-transparent text-sm outline-none font-bold">
+                        <option value="0" ${data && data.correctOption == 0 ? 'selected' : ''}>Option 1</option>
+                        <option value="1" ${data && data.correctOption == 1 ? 'selected' : ''}>Option 2</option>
+                        <option value="2" ${data && data.correctOption == 2 ? 'selected' : ''}>Option 3</option>
+                        <option value="3" ${data && data.correctOption == 3 ? 'selected' : ''}>Option 4</option>
+                    </select>
+                </div>`;
+            document.getElementById('q-container').appendChild(div);
+        }
+
+        function convertBase64(input, hiddenClass, previewClass) {
+            const file = input.files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const block = input.closest('.q-block');
+                    block.querySelector('.'+hiddenClass).value = e.target.result;
+                    const previewDiv = block.querySelector('.'+previewClass);
+                    previewDiv.innerHTML = `<img src="${e.target.result}" class="${hiddenClass.includes('opt') ? 'h-10' : 'h-24'} rounded border">`;
+                    previewDiv.classList.remove('hidden');
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        async function toggleMatStatus(id) { await fetch(`/admin/toggle-material/${id}`, { method: 'PATCH' }); loadMaterials(); }
+        async function deleteMaterial(id) { if(confirm("Delete?")) { await fetch(`/admin/delete-material/${id}`, { method: 'DELETE' }); loadMaterials(); } }
+        async function toggleVideoStatus(id) { await fetch(`/admin/toggle-video/${id}`, { method: 'PATCH' }); loadVideos(); }
+        async function deleteVideo(id) { if(confirm("Delete Video?")) { await fetch(`/admin/delete-video/${id}`, { method: 'DELETE' }); loadVideos(); } }
+        async function toggleExamStatus(id) { await fetch(`/admin/toggle-exam/${id}`, { method: 'PATCH' }); loadExams(); }
+        async function deleteExam(id) { if(confirm("Delete?")) { await fetch(`/admin/delete-exam/${id}`, { method: 'DELETE' }); loadExams(); } }
+
+        // ================= STUDENT LIST LOGIC =================
+        async function loadStudents() {
+            const res = await fetch('/admin/students');
+            const data = await res.json();
+            allStudents = data.filter(s => s.category === activeCategory);
+            document.getElementById('s-count').innerText = allStudents.length;
+            currentPage = 1; 
+            renderStudents();
+        }
+
+        function changeStudentSort() {
+            studentSortOrder = document.getElementById('studentSort').value;
+            currentPage = 1;
+            renderStudents();
+        }
+
+        function changeItemsPerPage() {
+            itemsPerPage = parseInt(document.getElementById('itemsPerPage').value);
+            currentPage = 1;
+            renderStudents();
+        }
+
+        function prevPage() { if (currentPage > 1) { currentPage--; renderStudents(); } }
+        function nextPage() { const totalPages = Math.ceil(allStudents.length / itemsPerPage); if (currentPage < totalPages) { currentPage++; renderStudents(); } }
+
+        function renderStudents() {
+            let sortedStudents = [...allStudents];
+            if(studentSortOrder === 'newest') sortedStudents.reverse(); 
+            const start = (currentPage - 1) * itemsPerPage;
+            const end = start + itemsPerPage;
+            const paginatedData = sortedStudents.slice(start, end);
+            const totalPages = Math.ceil(allStudents.length / itemsPerPage);
+
+            document.getElementById('student-list-body').innerHTML = paginatedData.map(s => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="p-4 font-bold text-slate-700">${s.name || 'N/A'}</td>
+                    <td class="p-4 text-slate-600">${s.email || 'N/A'}</td>
+                    <td class="p-4 text-center"><span class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-xs">${s.category || 'N/A'}</span></td>
+                    <td class="p-4 text-center"><button onclick="deleteStudent('${s._id}')" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-user-minus"></i></button></td>
+                </tr>`).join('');
+            document.getElementById('page-info').innerText = `Page ${currentPage} of ${totalPages || 1}`;
+            document.getElementById('prevBtn').disabled = currentPage === 1;
+            document.getElementById('nextBtn').disabled = currentPage === totalPages || totalPages === 0;
+        }
+
+        async function deleteStudent(id) { if(confirm("Remove Student?")) { await fetch(`/admin/delete-student/${id}`, { method: 'DELETE' }); loadStudents(); } }
+
+        // ================= EXAM RESULTS LOGIC =================
+        async function loadResults() {
+            const studentRes = await fetch('/admin/students');
+            const students = await studentRes.json();
+            const studentCategoryMap = {};
+            students.forEach(s => studentCategoryMap[s.email] = s.category);
+
+            const res = await fetch('/admin/results');
+            const data = await res.json();
+            
+            allResults = data.filter(r => studentCategoryMap[r.studentEmail] === activeCategory);
+            allResults.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
+
+            document.getElementById('res-count').innerText = allResults.length;
+            resultPage = 1;
+            renderResults();
+        }
+
+        function changeResultSort() {
+            resultSortOrder = document.getElementById('resultSort').value;
+            resultPage = 1;
+            renderResults();
+        }
+        function changeResultItemsPerPage() {
+            resultItemsPerPage = parseInt(document.getElementById('resultItemsPerPage').value);
+            resultPage = 1;
+            renderResults();
+        }
+        function prevResultPage() { if (resultPage > 1) { resultPage--; renderResults(); } }
+        function nextResultPage() { const totalPages = Math.ceil(allResults.length / resultItemsPerPage); if (resultPage < totalPages) { resultPage++; renderResults(); } }
+
+        function renderResults(dataToRender = null) {
+            let currentData = dataToRender || [...allResults];
+            if (resultSortOrder === 'newest') currentData.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
+            else currentData.sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt));
+
+            const start = (resultPage - 1) * resultItemsPerPage;
+            const end = start + resultItemsPerPage;
+            const paginatedData = currentData.slice(start, end);
+            const totalPages = Math.ceil(currentData.length / resultItemsPerPage);
+
+            document.getElementById('result-list-body').innerHTML = paginatedData.map(r => {
+                const titleWithoutCat = r.examTitle.replace(/ \[[^\]]*\]$/, '');
+                const parts = titleWithoutCat.split(' - ');
+                const term = parts.length === 3 ? parts[0] : 'N/A';
+                const subject = parts.length === 3 ? parts[1] : 'N/A';
+                const name = parts.length === 3 ? parts[2] : titleWithoutCat;
+
+                return `
+                <tr>
+                    <td class="p-4"><input type="checkbox" class="res-check" data-id="${r._id}"></td>
+                    <td class="p-4"><b>${r.studentName}</b><br><span class="text-xs">${r.studentEmail}</span></td>
+                    <td class="p-4 text-center text-slate-600 font-medium">${r.studentPhone || 'N/A'}</td>
+                    <td class="p-4"><span class="bg-gray-100 px-2 py-1 rounded text-xs font-bold text-gray-600">${term}</span></td>
+                    <td class="p-4 text-xs font-bold text-indigo-600">${subject}</td>
+                    <td class="p-4 font-bold text-slate-700">${name}</td>
+                    <td class="p-4 text-center font-bold text-blue-600">${r.score} / ${r.totalScore}</td>
+                    <td class="p-4 text-center text-xs text-green-600">✔ ${r.correctAnswers || 0} / ✖ ${r.wrongAnswers || 0}</td>
+                    <td class="p-4 text-center text-xs text-slate-500">${new Date(r.completedAt).toLocaleDateString()}</td>
+                    <td class="p-4 text-center"><button onclick="viewReport('${r._id}')" class="bg-slate-100 hover:bg-slate-200 text-slate-600 p-2 rounded-lg transition"><i class="fa-solid fa-file-lines"></i></button></td>
+                </tr>`;
+            }).join('');
+
+            document.getElementById('res-page-info').innerText = `Page ${resultPage} of ${totalPages || 1}`;
+            document.getElementById('resPrevBtn').disabled = resultPage === 1;
+            document.getElementById('resNextBtn').disabled = resultPage === totalPages || totalPages === 0;
+        }
+
+        // --- UPDATED REPORT GENERATION ---
+        function viewReport(id) {
+            const r = allResults.find(item => item._id === id); // Uses correct data source
+            if (!r) return alert("Result data not found!");
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Header
+            doc.setFontSize(22);
+            doc.setTextColor(40, 40, 40);
+            doc.text("EXAM RESULT REPORT", 105, 20, null, null, "center");
+            
+            doc.setLineWidth(0.5);
+            doc.line(20, 25, 190, 25);
+
+            // Student Info
+            doc.setFontSize(12);
+            doc.setTextColor(0, 0, 0);
+            doc.text(`Student Name: ${r.studentName}`, 20, 40);
+            doc.text(`Email: ${r.studentEmail}`, 20, 50);
+            doc.text(`Phone: ${r.studentPhone || 'N/A'}`, 20, 60);
+
+            // Exam Info
+            doc.text(`Exam Title: ${r.examTitle}`, 20, 80);
+            doc.text(`Date: ${new Date(r.completedAt).toLocaleString()}`, 20, 90);
+            
+            // Score Box
+            doc.setFillColor(240, 240, 240);
+            doc.rect(130, 35, 60, 30, 'F');
+            doc.setFontSize(14);
+            doc.text("Total Score", 160, 45, null, null, "center");
+            doc.setFontSize(20);
+            doc.setTextColor(0, 100, 0);
+            doc.text(`${r.score} / ${r.totalScore}`, 160, 60, null, null, "center");
+
+            // Details Section
+            let y = 110;
+            doc.setFontSize(14);
+            doc.setTextColor(0, 0, 0);
+            doc.text("Detailed Analysis:", 20, y);
+            y += 10;
+
+            doc.setFontSize(10);
+            
+            if (r.submittedText) {
+                // Writing Exam
+                doc.text("Student Response (Writing):", 20, y);
+                y += 7;
+                const splitText = doc.splitTextToSize(r.submittedText, 170);
+                doc.text(splitText, 20, y);
+                y += (splitText.length * 5) + 10;
+                
+                if(r.adminFeedback) {
+                    doc.setTextColor(0, 0, 150);
+                    doc.text(`Teacher Feedback: ${r.adminFeedback}`, 20, y);
+                }
+            } else if (r.details && r.details.length > 0) {
+                // MCQ Exam
+                r.details.forEach((q, index) => {
+                    if (y > 270) { doc.addPage(); y = 20; }
+                    
+                    doc.setFont(undefined, 'bold');
+                    const questionTitle = `Q${index + 1}: ${q.question}`;
+                    const splitTitle = doc.splitTextToSize(questionTitle, 170);
+                    doc.text(splitTitle, 20, y);
+                    y += (splitTitle.length * 5);
+
+                    doc.setFont(undefined, 'normal');
+                    const isCorrect = q.userAns === q.correctAns;
+                    
+                    doc.setTextColor(isCorrect ? 0 : 200, isCorrect ? 100 : 0, 0); // Green if correct, Red if wrong
+                    doc.text(`Your Answer: ${q.userAns}`, 20, y);
+                    
+                    doc.setTextColor(0, 100, 0);
+                    doc.text(`Correct Answer: ${q.correctAns}`, 100, y);
+                    
+                    doc.setTextColor(0, 0, 0); // Reset
+                    y += 10;
+                });
+            } else {
+                doc.text("No detailed question data available.", 20, y);
+            }
+
+            doc.save(`${r.studentName}_Report.pdf`);
+        }
+
+        function filterResults() {
+            const from = document.getElementById('fromDate').value;
+            const to = document.getElementById('toDate').value;
+            if(!from || !to) return alert("Select dates");
+            const filtered = allResults.filter(r => r.completedAt.split('T')[0] >= from && r.completedAt.split('T')[0] <= to);
+            resultPage = 1;
+            renderResults(filtered);
+        }
+        function downloadExcel() {
+            const ws = XLSX.utils.json_to_sheet(allResults);
+            const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Results");
+            XLSX.writeFile(wb, "Results.xlsx");
+        }
+        function toggleAll(source) { document.querySelectorAll('.res-check').forEach(cb => cb.checked = source.checked); }
+        function logout() { location.href = "/admin-login.html"; }
+    </script>
+</body>
+</html>

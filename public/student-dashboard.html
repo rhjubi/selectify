@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Student Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .profile-img { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid #6366f1; }
+        .locked { filter: grayscale(1); pointer-events: none; opacity: 0.5; }
+        .stat-card { transition: transform 0.3s ease; }
+        .stat-card:hover { transform: translateY(-5px); }
+        .folder-card { cursor: pointer; transition: all 0.3s; }
+        .folder-card:hover { transform: scale(1.05); background-color: #f0f9ff; }
+        
+        /* Dark Mode Specific Hover */
+        .dark .folder-card:hover { background-color: #1e293b; }
+
+        /* Leaderboard Specific Styles */
+        .rank-1 { background-color: #FFD700; color: #fff; border: 2px solid #e6c200; } 
+        .rank-2 { background-color: #C0C0C0; color: #fff; border: 2px solid #aaaaaa; } 
+        .rank-3 { background-color: #CD7F32; color: #fff; border: 2px solid #b87333; } 
+        .my-rank-row { background-color: #e0e7ff; border-left: 4px solid #4f46e5; }
+        .dark .my-rank-row { background-color: #312e81; border-left: 4px solid #6366f1; color: white; }
+        
+        /* Marquee for Notice */
+        .marquee-container { overflow: hidden; white-space: nowrap; }
+        .marquee-text { display: inline-block; animation: marquee 15s linear infinite; }
+        @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+
+        /* Notification Badge Style (GREEN for Folders) */
+        .notification-badge {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 14px;
+            height: 14px;
+            background-color: #22c55e; /* Green-500 */
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 5px rgba(34, 197, 94, 0.6);
+            z-index: 10;
+        }
+
+        /* Bell Badge (RED) */
+        .bell-badge {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 10px;
+            height: 10px;
+            background-color: #ef4444;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-slate-900 transition-colors duration-300 flex">
+
+    <div class="w-64 bg-indigo-900 dark:bg-slate-950 min-h-screen text-white p-5 fixed shadow-2xl overflow-y-auto z-10 transition-colors duration-300">
+        <div class="mb-10 text-center">
+            <div id="side-img-container"><i class="fa-solid fa-circle-user text-6xl mb-3 text-indigo-300"></i></div>
+            <h2 id="side-user-name" class="text-lg font-bold">Student</h2>
+            <p id="side-user-email" class="text-xs text-indigo-400">email@example.com</p>
+            <span id="user-category-badge" class="bg-indigo-700 text-xs px-2 py-1 rounded mt-2 inline-block"></span>
+        </div>
+        <nav class="space-y-2">
+            <button onclick="showSection('summary')" class="w-full text-left p-3 hover:bg-indigo-800 dark:hover:bg-slate-800 rounded-lg flex items-center"><i class="fa-solid fa-chart-pie mr-3"></i> Summary</button>
+            <button onclick="showSection('leaderboard')" class="w-full text-left p-3 hover:bg-indigo-800 dark:hover:bg-slate-800 rounded-lg flex items-center text-yellow-300 font-bold"><i class="fa-solid fa-trophy mr-3"></i> Leaderboard</button>
+            <button onclick="showSection('notices')" class="w-full text-left p-3 hover:bg-indigo-800 dark:hover:bg-slate-800 rounded-lg flex items-center"><i class="fa-solid fa-bullhorn mr-3 text-pink-400"></i> Notices</button>
+            <button onclick="showSection('pdf')" class="w-full text-left p-3 hover:bg-indigo-800 dark:hover:bg-slate-800 rounded-lg flex items-center"><i class="fa-solid fa-file-pdf mr-3"></i> PDF Materials</button>
+            <button onclick="showSection('video')" class="w-full text-left p-3 hover:bg-indigo-800 dark:hover:bg-slate-800 rounded-lg flex items-center"><i class="fa-solid fa-clapperboard mr-3"></i> Video Classes</button>
+            <button onclick="showSection('exam')" class="w-full text-left p-3 hover:bg-indigo-800 dark:hover:bg-slate-800 rounded-lg flex items-center"><i class="fa-solid fa-pen-to-square mr-3"></i> Live Exams</button>
+            <button onclick="showSection('history')" class="w-full text-left p-3 hover:bg-indigo-800 dark:hover:bg-slate-800 rounded-lg flex items-center"><i class="fa-solid fa-clock-rotate-left mr-3"></i> History</button>
+            <button onclick="showSection('profile')" class="w-full text-left p-3 hover:bg-indigo-800 dark:hover:bg-slate-800 rounded-lg flex items-center"><i class="fa-solid fa-user-gear mr-3"></i> Profile</button>
+            
+            <button onclick="toggleTheme()" class="w-full text-left p-3 mt-6 bg-indigo-800 dark:bg-slate-800 hover:bg-indigo-700 dark:hover:bg-slate-700 rounded-lg flex items-center border border-indigo-600 dark:border-slate-600 transition">
+                <i id="theme-icon" class="fa-solid fa-moon mr-3 text-yellow-300"></i> 
+                <span id="theme-text" class="font-bold text-sm">Dark Mode</span>
+            </button>
+
+            <div class="pt-4"><button onclick="logout()" class="w-full text-left p-3 bg-red-600 hover:bg-red-700 rounded-lg flex items-center"><i class="fa-solid fa-power-off mr-3"></i> Logout</button></div>
+        </nav>
+    </div>
+
+    <div class="ml-64 p-10 w-full text-gray-800 dark:text-gray-200">
+        
+        <div class="flex justify-between items-center mb-8 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm">
+            <h2 class="text-2xl font-bold dark:text-white" id="page-title">Dashboard</h2>
+            
+            <div class="relative">
+                <button onclick="toggleNotificationPanel()" class="relative p-2 text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition">
+                    <i class="fa-solid fa-bell text-2xl"></i>
+                    <span id="bell-badge" class="hidden bell-badge"></span>
+                </button>
+                
+                <div id="notification-dropdown" class="hidden absolute right-0 mt-4 w-80 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border dark:border-slate-700 z-50 overflow-hidden ring-1 ring-black ring-opacity-5">
+                    <div class="p-3 border-b dark:border-slate-700 font-bold dark:text-white bg-gray-50 dark:bg-slate-900 flex justify-between items-center">
+                        <span>Notifications</span>
+                        <button onclick="clearNotifications()" class="text-xs text-red-500 hover:text-red-700">Clear All</button>
+                    </div>
+                    <div id="notification-list" class="max-h-64 overflow-y-auto">
+                        </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="global-notice-bar" class="hidden mb-6 bg-pink-100 border-l-4 border-pink-500 p-3 flex items-center shadow-sm">
+            <span class="font-bold text-pink-700 mr-4 whitespace-nowrap"><i class="fa-solid fa-bullhorn"></i> NOTICE:</span>
+            <div class="marquee-container w-full">
+                <span id="marquee-text" class="marquee-text text-pink-800 font-medium"></span>
+            </div>
+        </div>
+
+        <div id="lock-warning" class="hidden mb-6 bg-red-100 border-l-4 border-red-500 p-4 text-red-700 flex justify-between items-center">
+            <p class="font-bold font-sans">⚠️ Please complete your profile to unlock downloads and exams!</p>
+            <button onclick="showSection('profile')" class="bg-red-600 text-white px-4 py-1 rounded text-sm">Fix Now</button>
+        </div>
+
+        <div id="summary-section" class="section">
+            <div id="summary-stats-grid" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"></div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <div>
+                    <h3 class="font-bold text-gray-600 dark:text-gray-400 mb-3 border-b dark:border-slate-700 pb-2">PDF Uploads (Subject-wise)</h3>
+                    <div id="pdf-subject-stats" class="grid grid-cols-2 gap-4"></div>
+                </div>
+                <div>
+                    <h3 class="font-bold text-gray-600 dark:text-gray-400 mb-3 border-b dark:border-slate-700 pb-2">Exams (Subject-wise)</h3>
+                    <div id="exam-subject-stats" class="grid grid-cols-2 gap-4"></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm text-center border dark:border-slate-700">
+                    <h3 class="font-bold text-gray-600 dark:text-gray-400 mb-4">Performance</h3>
+                    <div id="avg-percent-circle" class="text-5xl font-black text-indigo-600 dark:text-indigo-400 mb-2">0%</div>
+                    <p class="text-gray-400 text-sm font-bold">Average Score</p>
+                </div>
+                <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border dark:border-slate-700">
+                    <h3 class="font-bold text-gray-600 dark:text-gray-400 mb-4">Status</h3>
+                    <div class="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-4 mb-4 mt-8">
+                        <div id="profile-bar" class="bg-green-500 h-4 rounded-full transition-all duration-1000" style="width: 0%"></div>
+                    </div>
+                    <p id="profile-status-text" class="text-sm font-bold text-gray-500 dark:text-gray-400 text-center uppercase">Incomplete</p>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
+                <h3 class="font-bold text-indigo-700 dark:text-indigo-400 mb-4"><i class="fa-solid fa-chart-line mr-2"></i> Last 5 Exams Progress</h3>
+                <div class="relative w-full h-72">
+                    <canvas id="performanceChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div id="notices-section" class="section hidden">
+            <h2 class="text-2xl font-bold mb-6 dark:text-white"><i class="fa-solid fa-bullhorn text-pink-500 mr-2"></i> All Notices</h2>
+            <div id="notice-list-container" class="space-y-4"></div>
+        </div>
+
+        <div id="leaderboard-section" class="section hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-white"><i class="fa-solid fa-trophy text-yellow-500 mr-2"></i> Leaderboard (<span id="leaderboard-category-label"></span>)</h2>
+                <div class="bg-white dark:bg-slate-800 px-4 py-2 rounded-lg shadow text-sm font-bold text-gray-600 dark:text-gray-300">
+                    My Total Score: <span id="user-total-score" class="text-indigo-600 dark:text-indigo-400 text-lg">0</span>
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-4 mb-8 text-center items-end" id="podium-container"></div>
+            <div class="bg-white dark:bg-slate-800 rounded-xl shadow overflow-hidden border dark:border-slate-700">
+                <table class="w-full text-left">
+                    <thead class="bg-indigo-900 dark:bg-slate-950 text-white">
+                        <tr>
+                            <th class="p-4 text-center">Rank</th>
+                            <th class="p-4">Student Name</th>
+                            <th class="p-4 text-center">Category</th>
+                            <th class="p-4 text-center">Total Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-table-body" class="dark:text-gray-300"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="pdf-section" class="section hidden">
+            <h2 class="text-2xl font-bold mb-6 dark:text-white">PDF Materials</h2>
+            <div id="pdf-folders" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
+            <div id="pdf-list-view" class="hidden">
+                <button onclick="backToPDFFolders()" class="mb-4 text-indigo-600 dark:text-indigo-400 font-bold hover:underline"><i class="fa-solid fa-arrow-left"></i> Back</button>
+                <h3 id="selected-pdf-subject-title" class="text-xl font-bold mb-4 text-gray-700 dark:text-gray-300"></h3>
+                <div id="pdf-container" class="grid grid-cols-3 gap-6"></div>
+            </div>
+        </div>
+
+        <div id="video-section" class="section hidden">
+            <h2 class="text-2xl font-bold mb-6 dark:text-white">Video Classes</h2>
+            <div id="video-folders" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
+            <div id="video-list-view" class="hidden">
+                <button onclick="backToVideoFolders()" class="mb-4 text-red-600 dark:text-red-400 font-bold hover:underline"><i class="fa-solid fa-arrow-left"></i> Back</button>
+                <h3 id="selected-video-subject-title" class="text-xl font-bold mb-4 text-gray-700 dark:text-gray-300"></h3>
+                <div id="video-container" class="grid grid-cols-3 gap-6"></div>
+            </div>
+        </div>
+
+        <div id="exam-section" class="section hidden">
+            <h2 class="text-2xl font-bold mb-6 dark:text-white">Available Exams</h2>
+            <div id="exam-term-folders" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
+            <div id="exam-subject-folders" class="grid grid-cols-1 md:grid-cols-3 gap-6 hidden"></div>
+            <div id="exam-list-view" class="hidden">
+                <button onclick="backToExamSubjects()" class="mb-4 text-indigo-600 dark:text-indigo-400 font-bold"><i class="fa-solid fa-arrow-left"></i> Back</button>
+                <h3 id="selected-exam-breadcrumb" class="text-xl font-bold mb-4 text-gray-700 dark:text-gray-300"></h3>
+                <div id="exam-container" class="space-y-4"></div>
+            </div>
+        </div>
+
+        <div id="history-section" class="section hidden">
+            <h2 class="text-2xl font-bold mb-6 dark:text-white">Exam History</h2>
+            <div class="bg-white dark:bg-slate-800 rounded-xl shadow overflow-hidden border dark:border-slate-700">
+                <table class="w-full text-left">
+                    <thead class="bg-gray-50 dark:bg-slate-950 border-b dark:border-slate-700">
+                        <tr><th class="p-4">Exam</th><th class="p-4 text-center">Date</th><th class="p-4 text-center">Score</th><th class="p-4 text-center">Details</th></tr>
+                    </thead>
+                    <tbody id="history-table" class="dark:text-gray-300"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="profile-section" class="section hidden">
+            <h2 class="text-2xl font-bold mb-6 dark:text-white">Update Profile</h2>
+            <div class="bg-white dark:bg-slate-800 p-8 rounded-xl shadow-md grid grid-cols-3 gap-8 border dark:border-slate-700">
+                <div class="text-center">
+                    <div id="prof-img-prev" class="mb-4 flex justify-center"><i class="fa-solid fa-circle-user text-8xl text-gray-200 dark:text-slate-600"></i></div>
+                    <input type="file" id="imgInput" class="hidden" accept="image/*" onchange="previewImage(event)">
+                    <button id="upBtn" onclick="document.getElementById('imgInput').click()" class="bg-gray-100 dark:bg-slate-700 dark:text-white px-4 py-2 rounded text-xs font-bold">Change Image</button>
+                </div>
+                <div class="col-span-2 space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="text-xs font-bold text-gray-500 dark:text-gray-400">FULL NAME</label><input type="text" id="p-name" class="w-full border-b p-2 outline-none dark:bg-slate-800 dark:border-slate-600 dark:text-white"></div>
+                        <div><label class="text-xs font-bold text-gray-500 dark:text-gray-400">EMAIL</label><input type="text" id="p-email" disabled class="w-full border-b p-2 bg-gray-50 text-gray-400 dark:bg-slate-900 dark:border-slate-700"></div>
+                        <div><label class="text-xs font-bold text-gray-500 dark:text-gray-400">PARENT'S NAME</label><input type="text" id="p-parents" class="w-full border-b p-2 outline-none dark:bg-slate-800 dark:border-slate-600 dark:text-white"></div>
+                        <div><label class="text-xs font-bold text-gray-500 dark:text-gray-400">PHONE</label><input type="text" id="p-phone" class="w-full border-b p-2 outline-none dark:bg-slate-800 dark:border-slate-600 dark:text-white"></div>
+                        <div class="col-span-2"><label class="text-xs font-bold text-gray-500 dark:text-gray-400">ADDRESS</label><input type="text" id="p-address" class="w-full border-b p-2 outline-none dark:bg-slate-800 dark:border-slate-600 dark:text-white"></div>
+                    </div>
+                    <div id="btn-area" class="pt-6">
+                        <button onclick="saveProfile()" class="bg-indigo-600 text-white px-8 py-3 rounded-lg font-bold">Save & Unlock</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DARK MODE LOGIC ---
+        function toggleTheme() {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+                updateThemeButton(false);
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+                updateThemeButton(true);
+            }
+        }
+        function updateThemeButton(isDark) {
+            const btnText = document.getElementById('theme-text');
+            const btnIcon = document.getElementById('theme-icon');
+            if (isDark) {
+                btnText.innerText = "Light Mode";
+                btnIcon.className = "fa-solid fa-sun mr-3 text-yellow-300";
+            } else {
+                btnText.innerText = "Dark Mode";
+                btnIcon.className = "fa-solid fa-moon mr-3 text-yellow-300";
+            }
+        }
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                updateThemeButton(true);
+            } else {
+                document.documentElement.classList.remove('dark');
+                updateThemeButton(false);
+            }
+        }
+
+        // --- NEW: NOTIFICATION SYSTEM LOGIC ---
+        async function checkNewContent() {
+            const prevPdfCount = localStorage.getItem('prevPdfCount');
+            const prevExamCount = localStorage.getItem('prevExamCount');
+
+            try {
+                const [pdfRes, examRes] = await Promise.all([fetch('/admin/materials'), fetch('/admin/exams')]);
+                const pdfs = await pdfRes.json();
+                const exams = await examRes.json();
+
+                const myPdfs = pdfs.filter(m => m.isActive && m.title.endsWith(`[${studentCategory}]`));
+                const myExams = exams.filter(e => e.isActive && e.examTitle.endsWith(`[${studentCategory}]`));
+
+                const currentPdfCount = myPdfs.length;
+                const currentExamCount = myExams.length;
+
+                let newNotifs = JSON.parse(localStorage.getItem('systemNotifications') || '[]');
+                let updated = false;
+
+                if (prevPdfCount !== null && currentPdfCount > parseInt(prevPdfCount)) {
+                    newNotifs.unshift({
+                        msg: "A new PDF is uploaded",
+                        time: new Date().toISOString(),
+                        read: false,
+                        icon: "fa-file-pdf",
+                        color: "text-green-500"
+                    });
+                    updated = true;
+                }
+                
+                if (prevExamCount !== null && currentExamCount > parseInt(prevExamCount)) {
+                    newNotifs.unshift({
+                        msg: "A new exam is live now",
+                        time: new Date().toISOString(),
+                        read: false,
+                        icon: "fa-pen-to-square",
+                        color: "text-purple-500"
+                    });
+                    updated = true;
+                }
+
+                if (prevPdfCount === null || updated) localStorage.setItem('prevPdfCount', currentPdfCount);
+                if (prevExamCount === null || updated) localStorage.setItem('prevExamCount', currentExamCount);
+                
+                if (updated) localStorage.setItem('systemNotifications', JSON.stringify(newNotifs));
+
+                renderBellNotifications();
+
+            } catch (e) { console.error("Notification Check Error", e); }
+        }
+
+        function renderBellNotifications() {
+            const notifs = JSON.parse(localStorage.getItem('systemNotifications') || '[]');
+            const unreadCount = notifs.filter(n => !n.read).length;
+            const badge = document.getElementById('bell-badge');
+            const list = document.getElementById('notification-list');
+
+            if(unreadCount > 0) {
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+
+            if(notifs.length === 0) {
+                list.innerHTML = '<div class="p-4 text-center text-sm text-gray-500 dark:text-gray-400">No notifications</div>';
+            } else {
+                list.innerHTML = notifs.map(n => `
+                    <div class="p-3 border-b dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition flex items-start gap-3 ${n.read ? 'opacity-60' : 'bg-blue-50 dark:bg-slate-700'}">
+                        <i class="fa-solid ${n.icon} ${n.color} mt-1"></i>
+                        <div>
+                            <p class="text-sm font-bold text-gray-800 dark:text-gray-200">${n.msg}</p>
+                            <p class="text-xs text-gray-400">${new Date(n.time).toLocaleTimeString()} - ${new Date(n.time).toLocaleDateString()}</p>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function toggleNotificationPanel() {
+            const panel = document.getElementById('notification-dropdown');
+            panel.classList.toggle('hidden');
+            
+            if(!panel.classList.contains('hidden')) {
+                 const notifs = JSON.parse(localStorage.getItem('systemNotifications') || '[]');
+                 notifs.forEach(n => n.read = true);
+                 localStorage.setItem('systemNotifications', JSON.stringify(notifs));
+                 document.getElementById('bell-badge').classList.add('hidden');
+                 renderBellNotifications(); 
+            }
+        }
+
+        function clearNotifications() {
+            localStorage.removeItem('systemNotifications');
+            renderBellNotifications();
+        }
+
+        // -----------------------
+
+        function getUK(key) {
+            const email = localStorage.getItem('studentEmail');
+            return email ? `${key}_${email}` : key;
+        }
+
+        let isProfileLocked = true;
+        let SUBJECTS = ["Math", "Reading", "Thinking Skill"];
+        let DYNAMIC_TERMS = [];
+        let selectedTerm = "";
+        let studentCategory = localStorage.getItem('studentCategory') || 'OC';
+        let allExamsData = []; 
+        let myChart = null; 
+        let myExamHistory = [];
+
+        function checkLock() {
+            const userEmail = localStorage.getItem('studentEmail');
+            isProfileLocked = localStorage.getItem(`isComplete_${userEmail}`) !== 'true';
+            document.getElementById('lock-warning').classList.toggle('hidden', !isProfileLocked);
+        }
+
+        function configureSubjects() {
+            studentCategory = localStorage.getItem('studentCategory') || 'OC';
+            document.getElementById('user-category-badge').innerText = studentCategory;
+            if (studentCategory === 'Selective') {
+                if (!SUBJECTS.includes("Writing")) SUBJECTS.push("Writing");
+            } else {
+                SUBJECTS = SUBJECTS.filter(s => s !== "Writing");
+            }
+        }
+
+        function showSection(id) {
+            configureSubjects();
+            document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
+            document.getElementById(id + '-section').classList.remove('hidden');
+            document.getElementById('page-title').innerText = id.charAt(0).toUpperCase() + id.slice(1);
+            
+            if(id === 'summary') loadSummary();
+            if(id === 'leaderboard') loadLeaderboard(); 
+            if(id === 'pdf') loadPDFFolders();
+            if(id === 'video') loadVideoFolders();
+            if(id === 'exam') loadExamTerms();
+            if(id === 'history') loadHistory();
+            if(id === 'profile') loadProfileData();
+            if(id === 'notices') loadStudentNotices();
+        }
+
+        async function loadStudentNotices() {
+            try {
+                const res = await fetch('/admin/notices');
+                const data = await res.json();
+                const filtered = data.filter(n => n.title.endsWith(`[${studentCategory}]`));
+                const container = document.getElementById('notice-list-container');
+                if(filtered.length === 0) {
+                    container.innerHTML = `<p class="text-center text-gray-400 dark:text-gray-500 py-10">No notices found.</p>`;
+                } else {
+                    container.innerHTML = filtered.map(n => {
+                        let displayTitle = n.title.replace(` [${studentCategory}]`, '');
+                        return `<div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border-l-4 border-pink-500"><h3 class="font-bold text-lg text-slate-800 dark:text-white">${displayTitle}</h3><p class="text-xs text-gray-400 mb-2">${new Date(n.date).toLocaleDateString()} at ${new Date(n.date).toLocaleTimeString()}</p><p class="text-slate-600 dark:text-gray-300">${n.message}</p></div>`;
+                    }).join('');
+                }
+                if(filtered.length > 0) {
+                    filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+                    const latest = filtered[0];
+                    let displayTitle = latest.title.replace(` [${studentCategory}]`, '');
+                    document.getElementById('global-notice-bar').classList.remove('hidden');
+                    document.getElementById('marquee-text').innerText = `${displayTitle}: ${latest.message}`;
+                } else {
+                    document.getElementById('global-notice-bar').classList.add('hidden');
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        // ================= LEADERBOARD LOGIC =================
+        async function loadLeaderboard() {
+            const podium = document.getElementById('podium-container');
+            const tableBody = document.getElementById('leaderboard-table-body');
+            const leaderboardLabel = document.getElementById('leaderboard-category-label');
+            
+            if(leaderboardLabel) leaderboardLabel.innerText = studentCategory;
+            tableBody.innerHTML = '<tr><td colspan="4" class="p-6 text-center dark:text-gray-400">Loading ranking...</td></tr>';
+            
+            const myName = localStorage.getItem('studentName') || "You";
+            const myEmail = localStorage.getItem('studentEmail');
+
+            try {
+                const [usersRes, resultsRes] = await Promise.all([
+                    fetch('/admin/users'), 
+                    fetch('/admin/results')
+                ]);
+                
+                if (usersRes.ok && resultsRes.ok) {
+                    const users = await usersRes.json();
+                    const results = await resultsRes.json();
+                    const categoryUsers = users.filter(u => u.category === studentCategory);
+                    let leaderboardData = categoryUsers.map(u => {
+                        const userResults = results.filter(r => r.studentEmail === u.email);
+                        const totalScore = userResults.reduce((sum, r) => sum + (r.score || 0), 0);
+                        return {
+                            name: u.name,
+                            score: totalScore,
+                            category: u.category,
+                            email: u.email,
+                            isMe: u.email === myEmail
+                        };
+                    });
+                    leaderboardData.sort((a, b) => b.score - a.score);
+
+                    const me = leaderboardData.find(u => u.isMe);
+                    document.getElementById('user-total-score').innerText = me ? me.score : 0;
+
+                    podium.innerHTML = '';
+                    if(leaderboardData[1]) { podium.innerHTML += `<div class="flex flex-col items-center justify-end"><div class="w-16 h-16 rounded-full bg-gray-300 border-4 border-gray-400 flex items-center justify-center text-xl font-bold text-gray-600 mb-2">2</div><div class="h-24 w-full bg-gray-200 rounded-t-lg flex items-end justify-center pb-2 shadow"><span class="font-bold text-sm text-gray-600">${leaderboardData[1].name.split(' ')[0]}</span></div></div>`; }
+                    if(leaderboardData[0]) { podium.innerHTML += `<div class="flex flex-col items-center justify-end"><i class="fa-solid fa-crown text-yellow-500 text-3xl mb-2 animate-bounce"></i><div class="w-20 h-20 rounded-full bg-yellow-100 border-4 border-yellow-400 flex items-center justify-center text-2xl font-bold text-yellow-600 mb-2">1</div><div class="h-32 w-full bg-yellow-100 rounded-t-lg flex items-end justify-center pb-2 shadow-lg border-t-4 border-yellow-400"><span class="font-bold text-lg text-yellow-700">${leaderboardData[0].name.split(' ')[0]}</span></div></div>`; }
+                    if(leaderboardData[2]) { podium.innerHTML += `<div class="flex flex-col items-center justify-end"><div class="w-16 h-16 rounded-full bg-orange-100 border-4 border-orange-400 flex items-center justify-center text-xl font-bold text-orange-600 mb-2">3</div><div class="h-20 w-full bg-orange-50 rounded-t-lg flex items-end justify-center pb-2 shadow"><span class="font-bold text-sm text-orange-700">${leaderboardData[2].name.split(' ')[0]}</span></div></div>`; }
+                    
+                    if (leaderboardData.length === 0) { 
+                        tableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-gray-400">No ranking data available for ${studentCategory}.</td></tr>`; 
+                        return; 
+                    }
+                    
+                    tableBody.innerHTML = leaderboardData.map((user, index) => {
+                        let rankClass = '', rankIcon = '';
+                        if(index === 0) { rankClass = 'rank-1 rounded-full px-2'; rankIcon = '<i class="fa-solid fa-medal"></i>'; }
+                        else if(index === 1) { rankClass = 'rank-2 rounded-full px-2'; rankIcon = '<i class="fa-solid fa-medal"></i>'; }
+                        else if(index === 2) { rankClass = 'rank-3 rounded-full px-2'; rankIcon = '<i class="fa-solid fa-medal"></i>'; }
+                        
+                        const rowClass = user.isMe ? 'my-rank-row' : 'hover:bg-gray-50 dark:hover:bg-slate-900';
+                        const nameDisplay = user.isMe ? `${user.name} (You)` : user.name;
+                        const nameStyle = user.isMe ? 'font-bold text-indigo-700 dark:text-indigo-300' : 'text-gray-700 dark:text-gray-300';
+                        
+                        return `<tr class="border-b dark:border-slate-700 transition duration-200 ${rowClass}">
+                            <td class="p-4 text-center font-bold text-gray-600 dark:text-gray-400"><span class="${rankClass}">${rankIcon} ${index + 1}</span></td>
+                            <td class="p-4 ${nameStyle}">${user.isMe ? '<i class="fa-solid fa-user-tag mr-2"></i>' : ''} ${nameDisplay}</td>
+                            <td class="p-4 text-center text-xs"><span class="bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-300 px-2 py-1 rounded">${user.category}</span></td>
+                            <td class="p-4 text-center font-bold font-mono text-gray-700 dark:text-gray-200">${user.score}</td>
+                        </tr>`;
+                    }).join('');
+                }
+            } catch (error) { 
+                console.error("Leaderboard Error:", error);
+                tableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-red-500">Error loading leaderboard.</td></tr>`;
+            }
+        }
+
+        async function loadHistoryDataFromServer() {
+            try {
+                const res = await fetch('/admin/results');
+                const data = await res.json();
+                const myEmail = localStorage.getItem('studentEmail');
+                myExamHistory = data.filter(r => r.studentEmail === myEmail);
+                myExamHistory.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
+            } catch(e) { console.error("Error fetching history:", e); }
+        }
+
+        async function loadSummary() {
+            try {
+                loadStudentNotices();
+                // Check for new content immediately on load
+                checkNewContent();
+
+                const pdfRes = await fetch('/admin/materials');
+                const pdfs = await pdfRes.json();
+                let activePDFs = pdfs.filter(m => m.isActive && m.title.endsWith(`[${studentCategory}]`));
+                const pdfCounts = {};
+                SUBJECTS.forEach(s => pdfCounts[s] = 0);
+                pdfCounts["Discussion"] = 0;
+                activePDFs.forEach(pdf => {
+                    let found = false;
+                    for (const sub of SUBJECTS) { if (pdf.title.includes(sub)) { pdfCounts[sub]++; found = true; break; } }
+                    if (!found) pdfCounts["Discussion"]++;
+                });
+
+                const examRes = await fetch('/admin/exams');
+                const exams = await examRes.json();
+                let activeExams = exams.filter(e => e.isActive && e.examTitle.endsWith(`[${studentCategory}]`));
+                const examCounts = {};
+                SUBJECTS.forEach(sub => examCounts[sub] = 0);
+                activeExams.forEach(ex => { for (const sub of SUBJECTS) { if (ex.examTitle.includes(sub)) { examCounts[sub]++; break; } } });
+
+                await loadHistoryDataFromServer();
+
+                const totalExams = activeExams.length;
+                const attendedCount = myExamHistory.length;
+                const pendingExams = totalExams > attendedCount ? totalExams - attendedCount : 0;
+                
+                document.getElementById('summary-stats-grid').innerHTML = `<div class="stat-card bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border-b-4 border-blue-600"><p class="text-gray-400 text-xs font-bold uppercase">Total Materials</p><h3 class="text-3xl font-black text-blue-600 dark:text-blue-400">${activePDFs.length}</h3></div><div class="stat-card bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border-b-4 border-purple-600"><p class="text-gray-400 text-xs font-bold uppercase">Total Exams</p><h3 class="text-3xl font-black text-purple-600 dark:text-purple-400">${totalExams}</h3></div><div class="stat-card bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border-b-4 border-yellow-500"><p class="text-gray-400 text-xs font-bold uppercase">Pending</p><h3 class="text-3xl font-black text-yellow-600 dark:text-yellow-400">${pendingExams}</h3></div>`;
+                
+                let pdfSubHtml = '';
+                SUBJECTS.forEach(sub => { pdfSubHtml += `<div class="bg-blue-50 dark:bg-slate-700 p-3 rounded-lg flex justify-between items-center"><span class="font-bold text-gray-700 dark:text-gray-300 text-sm">${sub}</span><span class="bg-blue-200 dark:bg-slate-600 text-blue-800 dark:text-blue-200 px-2 py-1 rounded text-xs font-bold">${pdfCounts[sub]}</span></div>`; });
+                document.getElementById('pdf-subject-stats').innerHTML = pdfSubHtml;
+                
+                let examSubHtml = '';
+                SUBJECTS.forEach(sub => { examSubHtml += `<div class="bg-purple-50 dark:bg-slate-700 p-3 rounded-lg flex justify-between items-center"><span class="font-bold text-gray-700 dark:text-gray-300 text-sm">${sub}</span><span class="bg-purple-200 dark:bg-slate-600 text-purple-800 dark:text-purple-200 px-2 py-1 rounded text-xs font-bold">${examCounts[sub]}</span></div>`; });
+                document.getElementById('exam-subject-stats').innerHTML = examSubHtml;
+                
+                if(myExamHistory.length > 0) {
+                    const totalObtained = myExamHistory.reduce((sum, h) => sum + (h.score || 0), 0);
+                    const totalPossible = myExamHistory.reduce((sum, h) => sum + (h.totalScore || 0), 0);
+                    const avgPercent = totalPossible > 0 ? Math.round((totalObtained / totalPossible) * 100) : 0;
+                    document.getElementById('avg-percent-circle').innerText = avgPercent + "%";
+                }
+                
+                const userEmail = localStorage.getItem('studentEmail');
+                const isComplete = localStorage.getItem(`isComplete_${userEmail}`) === 'true';
+                const profileBar = document.getElementById('profile-bar');
+                const profileText = document.getElementById('profile-status-text');
+                if (isComplete) { profileBar.style.width = '100%'; profileBar.classList.remove('bg-green-500'); profileBar.classList.add('bg-green-600'); profileText.innerText = 'VERIFIED'; profileText.classList.remove('text-gray-500'); profileText.classList.add('text-green-600'); } else { profileBar.style.width = '30%'; profileText.innerText = 'INCOMPLETE'; }
+                
+                renderChart(myExamHistory);
+                loadProfileData(); 
+            } catch(e) { console.log(e); }
+        }
+
+        function renderChart(history) {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            const recentExams = history.filter(h => h.status !== 'Pending').slice(0, 5).reverse(); 
+            
+            if(recentExams.length === 0) return;
+
+            const labels = recentExams.map(h => {
+                let name = h.examTitle.replace(/ \[[^\]]*\]$/, ''); 
+                return name.split(' - ').pop().substring(0, 15); 
+            });
+            const dataPoints = recentExams.map(h => (h.score / h.totalScore) * 100);
+
+            if(myChart) myChart.destroy();
+
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Exam Score (%)',
+                        data: dataPoints,
+                        borderColor: '#4f46e5',
+                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#4f46e5',
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, max: 100, grid: { color: '#64748b' } },
+                        x: { grid: { display: false } }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: function(context) { return `Score: ${context.raw.toFixed(1)}%`; } } }
+                    }
+                }
+            });
+        }
+
+        async function loadHistory() {
+            await loadHistoryDataFromServer();
+            const tableBody = document.getElementById('history-table');
+            if(myExamHistory.length === 0) { tableBody.innerHTML = `<tr><td colspan="4" class="p-10 text-center text-gray-400 dark:text-gray-500">No history found.</td></tr>`; return; }
+            
+            tableBody.innerHTML = myExamHistory.map((h, index) => {
+                 let displayName = h.examTitle.replace(/ \[[^\]]*\]$/, '').split(' - ').slice(2).join(' - ');
+                 
+                 let scoreDisplay = `<span class="font-bold text-indigo-600 dark:text-indigo-400">${h.score} / ${h.totalScore}</span>`;
+                 let actionBtn = `<button onclick="downloadPDF(${index})" class="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-3 py-1 rounded text-xs font-bold hover:bg-red-200"><i class="fa-solid fa-file-pdf"></i> Report</button>`;
+
+                 if(h.status === 'Pending') {
+                     scoreDisplay = `<span class="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-1 rounded text-xs font-bold animate-pulse">Pending</span>`;
+                     actionBtn = `<span class="text-gray-400 text-xs italic">Waiting for Grade</span>`;
+                 } else if (h.adminFeedback) {
+                     actionBtn = `<button onclick="showFeedback('${h.adminFeedback.replace(/'/g, "\\'")}')" class="bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 px-3 py-1 rounded text-xs font-bold hover:bg-cyan-200 mr-2"><i class="fa-solid fa-comment-dots"></i> Feedback</button>`;
+                 }
+
+                 return `<tr class="border-b dark:border-slate-700"><td class="p-4 font-bold text-gray-700 dark:text-gray-300">${displayName}</td><td class="p-4 text-center text-gray-500 dark:text-gray-400">${new Date(h.completedAt).toLocaleDateString()}</td><td class="p-4 text-center">${scoreDisplay}</td><td class="p-4 text-center">${actionBtn}</td></tr>`;
+            }).join('');
+        }
+
+        function showFeedback(msg) {
+            alert("👨‍🏫 Teacher's Feedback:\n\n" + msg);
+        }
+
+        function downloadPDF(index) {
+            if (!window.jspdf) return alert("PDF library loading...");
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const data = myExamHistory[index]; 
+            if (!data) return alert("Data error!");
+            
+            let displayName = data.examTitle.replace(/ \[[^\]]*\]$/, '').split(' - ').slice(2).join(' - ');
+            doc.text("EXAM REPORT", 20, 20); doc.text(`Exam: ${displayName}`, 20, 30); doc.text(`Score: ${data.score} / ${data.totalScore}`, 20, 40);
+            let y = 50;
+            if(data.details && data.details.length > 0) {
+                data.details.forEach((item, i) => {
+                    if(y > 270) { doc.addPage(); y = 20; }
+                    doc.setFontSize(12);
+                    doc.text(`${i+1}. ${item.question}`, 20, y); y+=10;
+                    doc.setFontSize(10);
+                    doc.text(`Ans: ${item.userAns} | Correct: ${item.correctAns}`, 25, y); y+=10;
+                });
+            } else if (data.submittedText) {
+                doc.text("Your Answer:", 20, y); y+=10;
+                const splitText = doc.splitTextToSize(data.submittedText, 170);
+                doc.text(splitText, 20, y);
+            }
+            doc.save("Report.pdf");
+        }
+
+        // ================= EXAM LOADING LOGIC WITH NOTIFICATION BADGE =================
+        
+        async function loadExamTerms() {
+            document.getElementById('exam-term-folders').classList.remove('hidden');
+            document.getElementById('exam-subject-folders').classList.add('hidden');
+            document.getElementById('exam-list-view').classList.add('hidden');
+
+            const res = await fetch('/admin/exams');
+            allExamsData = await res.json();
+            
+            const localHistory = JSON.parse(localStorage.getItem(getUK('examHistory')) || '[]');
+            const combinedHistory = [...localHistory]; 
+
+            let filteredExams = allExamsData.filter(e => e.isActive && e.examTitle.endsWith(`[${studentCategory}]`));
+
+            // Calculate Pending Status
+            const pendingMap = {}; 
+            filteredExams.forEach(e => {
+                let cleanTitle = e.examTitle.replace(` [${studentCategory}]`, '');
+                const parts = cleanTitle.split(' - ');
+                if (parts.length >= 2) {
+                    const term = parts[0].trim();
+                    const subject = parts[1].trim();
+                    
+                    const isTaken = combinedHistory.some(h => h.id === e._id);
+                    if (!isTaken) {
+                        if (!pendingMap[term]) pendingMap[term] = { hasPending: false };
+                        pendingMap[term].hasPending = true;
+                    }
+                }
+            });
+
+            const termsSet = new Set();
+            filteredExams.forEach(e => {
+                let cleanTitle = e.examTitle.replace(` [${studentCategory}]`, '');
+                const parts = cleanTitle.split(' - ');
+                if (parts.length >= 1) termsSet.add(parts[0].trim()); 
+            });
+            DYNAMIC_TERMS = Array.from(termsSet).sort();
+
+            const container = document.getElementById('exam-term-folders');
+            if(DYNAMIC_TERMS.length === 0) { 
+                container.innerHTML = `<p class="col-span-3 text-center text-gray-400 dark:text-gray-500 py-10">No exams available.</p>`; 
+                return; 
+            }
+
+            container.innerHTML = DYNAMIC_TERMS.map(term => {
+                const hasBadge = pendingMap[term] && pendingMap[term].hasPending;
+                return `
+                <div onclick="openExamTermSubjects('${term}')" class="folder-card bg-white dark:bg-slate-800 p-8 rounded-xl shadow border border-gray-100 dark:border-slate-700 flex flex-col items-center justify-center gap-4 relative">
+                    <div class="relative inline-block">
+                        <i class="fa-solid fa-layer-group text-6xl text-purple-600 dark:text-purple-400"></i>
+                        ${hasBadge ? '<span class="notification-badge"></span>' : ''}
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-700 dark:text-gray-200">${term}</h3>
+                    <span class="text-xs text-gray-400 font-bold bg-gray-100 dark:bg-slate-700 dark:text-gray-300 px-3 py-1 rounded-full">Open</span>
+                </div>`;
+            }).join('');
+        }
+
+        function openExamTermSubjects(term) {
+            selectedTerm = term;
+            document.getElementById('exam-term-folders').classList.add('hidden');
+            document.getElementById('exam-subject-folders').classList.remove('hidden');
+
+            const history = JSON.parse(localStorage.getItem(getUK('examHistory')) || '[]');
+            
+            const pendingSubjects = {};
+            const filteredExams = allExamsData.filter(e => e.isActive && e.examTitle.endsWith(`[${studentCategory}]`) && e.examTitle.includes(term));
+            
+            filteredExams.forEach(e => {
+                let cleanTitle = e.examTitle.replace(` [${studentCategory}]`, '');
+                const parts = cleanTitle.split(' - ');
+                if (parts.length >= 2) {
+                    const subject = parts[1].trim();
+                    const isTaken = history.some(h => h.id === e._id);
+                    if (!isTaken) pendingSubjects[subject] = true;
+                }
+            });
+
+            const container = document.getElementById('exam-subject-folders');
+            let html = `<div class="col-span-1 md:col-span-3"><button onclick="backToExamTerms()" class="mb-4 text-purple-600 dark:text-purple-400 font-bold hover:underline"><i class="fa-solid fa-arrow-left"></i> Back</button></div>`;
+            
+            html += SUBJECTS.map(sub => {
+                const hasBadge = pendingSubjects[sub];
+                return `
+                <div onclick="openExamSubject('${sub}')" class="folder-card bg-white dark:bg-slate-800 p-8 rounded-xl shadow border border-gray-100 dark:border-slate-700 flex flex-col items-center justify-center gap-4 relative">
+                    <div class="relative inline-block">
+                        <i class="fa-solid fa-file-pen text-6xl text-blue-400"></i> ${hasBadge ? '<span class="notification-badge"></span>' : ''}
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-700 dark:text-gray-200">${sub}</h3>
+                    <span class="text-xs text-gray-400 font-bold bg-gray-100 dark:bg-slate-700 dark:text-gray-300 px-3 py-1 rounded-full">${selectedTerm}</span>
+                </div>`;
+            }).join('');
+            
+            container.innerHTML = html;
+        }
+
+        function openExamSubject(subject) {
+            document.getElementById('exam-subject-folders').classList.add('hidden');
+            document.getElementById('exam-list-view').classList.remove('hidden');
+            document.getElementById('selected-exam-breadcrumb').innerText = `${selectedTerm} > ${subject}`;
+            const history = JSON.parse(localStorage.getItem(getUK('examHistory')) || '[]');
+            
+            const filteredExams = allExamsData.filter(e => {
+                if(!e.isActive || !e.examTitle.endsWith(`[${studentCategory}]`)) return false;
+                let cleanTitle = e.examTitle.replace(` [${studentCategory}]`, '');
+                return cleanTitle.startsWith(`${selectedTerm} - ${subject} -`);
+            });
+            
+            const container = document.getElementById('exam-container');
+            if (filteredExams.length === 0) { container.innerHTML = `<p class="text-gray-400 text-center py-10">No exams found.</p>`; return; }
+            
+            container.innerHTML = filteredExams.map(e => {
+                const attended = history.some(h => h.id === e._id);
+                let cleanTitle = e.examTitle.replace(` [${studentCategory}]`, '');
+                let displayName = cleanTitle.split(' - ').slice(2).join(' - ');
+                
+                return `<div class="bg-white dark:bg-slate-800 p-5 rounded-xl flex justify-between items-center shadow ${isProfileLocked ? 'locked' : ''} relative border dark:border-slate-700">
+                    ${!attended ? '<div class="absolute top-2 right-2 w-3 h-3 bg-green-500 rounded-full animate-ping"></div>' : ''}
+                    <div>
+                        <h3 class="font-bold text-lg dark:text-gray-200">${displayName}</h3>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Duration: ${e.examTime} Mins</p>
+                    </div>
+                    ${attended ? '<span class="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-4 py-2 rounded-lg font-bold text-xs">Attended</span>' : `<button onclick="location.href='/take-exam.html?id=${e._id}'" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-bold transition">Start</button>`}
+                </div>`;
+            }).join('');
+        }
+
+        function backToExamTerms() { document.getElementById('exam-term-folders').classList.remove('hidden'); document.getElementById('exam-subject-folders').classList.add('hidden'); }
+        function backToExamSubjects() { document.getElementById('exam-list-view').classList.add('hidden'); document.getElementById('exam-subject-folders').classList.remove('hidden'); }
+        async function loadPDFFolders() {
+            const res = await fetch('/admin/materials');
+            const data = await res.json();
+            document.getElementById('pdf-folders').classList.remove('hidden');
+            document.getElementById('pdf-list-view').classList.add('hidden');
+            const folderContainer = document.getElementById('pdf-folders');
+            let html = SUBJECTS.map(sub => `<div onclick="openPDFSubject('${sub}')" class="folder-card bg-white dark:bg-slate-800 p-8 rounded-xl shadow border border-gray-100 dark:border-slate-700 flex flex-col items-center justify-center gap-4"><i class="fa-solid fa-folder-open text-6xl text-yellow-400"></i><h3 class="text-xl font-bold text-gray-700 dark:text-gray-200">${sub}</h3><span class="text-xs text-gray-400 font-bold bg-gray-100 dark:bg-slate-700 dark:text-gray-300 px-3 py-1 rounded-full">Materials</span></div>`).join('');
+            html += `<div onclick="openPDFSubject('Discussion')" class="folder-card bg-white dark:bg-slate-800 p-8 rounded-xl shadow border border-gray-100 dark:border-slate-700 flex flex-col items-center justify-center gap-4"><i class="fa-regular fa-folder text-6xl text-gray-400"></i><h3 class="text-xl font-bold text-gray-700 dark:text-gray-200">Discussion</h3><span class="text-xs text-gray-400 font-bold bg-gray-100 dark:bg-slate-700 dark:text-gray-300 px-3 py-1 rounded-full">Extra</span></div>`;
+            folderContainer.innerHTML = html;
+        }
+        async function openPDFSubject(subject) {
+            const res = await fetch('/admin/materials');
+            const data = await res.json();
+            const allPDFs = data.filter(m => m.isActive && m.title.endsWith(`[${studentCategory}]`));
+            document.getElementById('pdf-folders').classList.add('hidden');
+            document.getElementById('pdf-list-view').classList.remove('hidden');
+            document.getElementById('selected-pdf-subject-title').innerHTML = `<span class="text-indigo-600 dark:text-indigo-400">${subject}</span> Materials`;
+            const filteredPDFs = allPDFs.filter(pdf => {
+                if (subject === 'Discussion') return !SUBJECTS.some(sub => pdf.title.includes(sub));
+                return pdf.title.includes(subject);
+            });
+            const container = document.getElementById('pdf-container');
+            if (filteredPDFs.length === 0) { container.innerHTML = `<p class="text-gray-400 col-span-3 text-center py-10">No materials found.</p>`; return; }
+            container.innerHTML = filteredPDFs.map(m => {
+                let displayName = m.title.replace(` [${studentCategory}]`, '').split(' - ').pop();
+                return `<div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow border-l-4 border-indigo-500 ${isProfileLocked ? 'locked' : ''} border dark:border-slate-700"><div class="flex justify-between items-start mb-4"><h3 class="font-bold text-gray-800 dark:text-gray-200 leading-tight">${displayName}</h3><i class="fa-solid fa-file-pdf text-red-500 text-2xl"></i></div><a href="${m.driveLink}" target="_blank" class="w-full block text-center bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold py-2 rounded hover:bg-indigo-100 transition">Download <i class="fa-solid fa-download ml-2"></i></a></div>`;
+            }).join('');
+        }
+        function backToPDFFolders() { document.getElementById('pdf-folders').classList.remove('hidden'); document.getElementById('pdf-list-view').classList.add('hidden'); }
+        async function loadVideoFolders() {
+            const res = await fetch('/admin/videos'); 
+            const data = await res.json();
+            document.getElementById('video-folders').classList.remove('hidden');
+            document.getElementById('video-list-view').classList.add('hidden');
+            const folderContainer = document.getElementById('video-folders');
+            let html = SUBJECTS.map(sub => `<div onclick="openVideoSubject('${sub}')" class="folder-card bg-white dark:bg-slate-800 p-8 rounded-xl shadow border border-gray-100 dark:border-slate-700 flex flex-col items-center justify-center gap-4"><i class="fa-solid fa-clapperboard text-6xl text-red-400"></i><h3 class="text-xl font-bold text-gray-700 dark:text-gray-200">${sub}</h3><span class="text-xs text-gray-400 font-bold bg-gray-100 dark:bg-slate-700 dark:text-gray-300 px-3 py-1 rounded-full">Videos</span></div>`).join('');
+            html += `<div onclick="openVideoSubject('Discussion')" class="folder-card bg-white dark:bg-slate-800 p-8 rounded-xl shadow border border-gray-100 dark:border-slate-700 flex flex-col items-center justify-center gap-4"><i class="fa-solid fa-video text-6xl text-gray-400"></i><h3 class="text-xl font-bold text-gray-700 dark:text-gray-200">Discussion</h3><span class="text-xs text-gray-400 font-bold bg-gray-100 dark:bg-slate-700 dark:text-gray-300 px-3 py-1 rounded-full">Extra</span></div>`;
+            folderContainer.innerHTML = html;
+        }
+        async function openVideoSubject(subject) {
+            const res = await fetch('/admin/videos');
+            const data = await res.json();
+            const allVideos = data.filter(v => v.isActive && v.title.endsWith(`[${studentCategory}]`));
+            document.getElementById('video-folders').classList.add('hidden');
+            document.getElementById('video-list-view').classList.remove('hidden');
+            document.getElementById('selected-video-subject-title').innerHTML = `<span class="text-red-600 dark:text-red-400">${subject}</span> Classes`;
+            const filteredVideos = allVideos.filter(v => {
+                if (subject === 'Discussion') return !SUBJECTS.some(sub => v.title.includes(sub));
+                return v.title.includes(subject);
+            });
+            const container = document.getElementById('video-container');
+            if (filteredVideos.length === 0) { container.innerHTML = `<p class="text-gray-400 col-span-3 text-center py-10">No classes found.</p>`; return; }
+            container.innerHTML = filteredVideos.map(v => {
+                let displayName = v.title.replace(` [${studentCategory}]`, '').split(' - ').pop();
+                return `<div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow border-l-4 border-red-500 ${isProfileLocked ? 'locked' : ''} border dark:border-slate-700"><div class="flex justify-between items-start mb-4"><h3 class="font-bold text-gray-800 dark:text-gray-200 leading-tight">${displayName}</h3><i class="fa-solid fa-circle-play text-red-500 text-3xl"></i></div><a href="${v.link}" target="_blank" class="w-full block text-center bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-bold py-2 rounded hover:bg-red-100 transition">Watch Now <i class="fa-solid fa-play ml-2"></i></a></div>`;
+            }).join('');
+        }
+        function backToVideoFolders() { document.getElementById('video-folders').classList.remove('hidden'); document.getElementById('video-list-view').classList.add('hidden'); }
+        function previewImage(event) {
+            const reader = new FileReader();
+            reader.onload = () => { document.getElementById('prof-img-prev').innerHTML = `<img src="${reader.result}" class="profile-img">`; localStorage.setItem(getUK('studentImg'), reader.result); };
+            if(event.target.files[0]) reader.readAsDataURL(event.target.files[0]);
+        }
+        function saveProfile() {
+            localStorage.setItem(getUK('parents'), document.getElementById('p-parents').value);
+            localStorage.setItem(getUK('phone'), document.getElementById('p-phone').value);
+            localStorage.setItem(getUK('address'), document.getElementById('p-address').value);
+            localStorage.setItem(`isComplete_${localStorage.getItem('studentEmail')}`, 'true'); 
+            alert("Profile Completed!"); location.reload();
+        }
+        function loadProfileData() {
+            document.getElementById('side-user-name').innerText = localStorage.getItem('studentName');
+            document.getElementById('side-user-email').innerText = localStorage.getItem('studentEmail');
+            document.getElementById('p-name').value = localStorage.getItem('studentName');
+            document.getElementById('p-email').value = localStorage.getItem('studentEmail');
+            document.getElementById('p-parents').value = localStorage.getItem(getUK('parents')) || '';
+            document.getElementById('p-phone').value = localStorage.getItem(getUK('phone')) || '';
+            document.getElementById('p-address').value = localStorage.getItem(getUK('address')) || '';
+            const img = localStorage.getItem(getUK('studentImg'));
+            if(img) { document.getElementById('prof-img-prev').innerHTML = `<img src="${img}" class="profile-img">`; document.getElementById('side-img-container').innerHTML = `<img src="${img}" class="profile-img mx-auto mb-3" style="width:60px; height:60px">`; }
+            if(localStorage.getItem(`isComplete_${localStorage.getItem('studentEmail')}`) === 'true') {
+                document.getElementById('btn-area').innerHTML = `<span class="text-green-600 font-bold"><i class="fa-solid fa-check-double"></i> Verified</span>`;
+                document.getElementById('upBtn').classList.add('hidden');
+            }
+        }
+        function logout() { localStorage.removeItem('studentEmail'); location.href='/student-login.html'; }
+        
+        window.onload = () => { loadTheme(); checkLock(); configureSubjects(); loadProfileData(); showSection('summary'); 
+            // Auto-check notifications every 30 seconds
+            setInterval(checkNewContent, 30000);
+        };
+    </script>
+</body>
+</html>

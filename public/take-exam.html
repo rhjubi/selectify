@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Live Exam</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Prevent Text Selection (Copy Protection) */
+        body {
+            -webkit-user-select: none; /* Safari */
+            -moz-user-select: none; /* Firefox */
+            -ms-user-select: none; /* IE10+/Edge */
+            user-select: none; /* Standard */
+        }
+
+        /* Custom styles for review mode */
+        .correct-answer { background-color: #059669 !important; border-color: #34d399 !important; } /* Green */
+        .wrong-answer { background-color: #dc2626 !important; border-color: #f87171 !important; } /* Red */
+        .unanswered { opacity: 0.6; }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen p-4 md:p-10" oncontextmenu="return false" oncopy="return false" onpaste="return false" oncut="return false">
+    <div class="max-w-4xl mx-auto">
+        
+        <div id="header-bar" class="flex justify-between items-center mb-6 bg-slate-800 p-5 rounded-xl sticky top-0 z-10 shadow-xl border-b border-slate-700">
+            <div>
+                <h1 id="exam-title" class="text-xl font-bold truncate">Loading Exam...</h1>
+                <span class="text-xs bg-red-600 text-white px-2 py-1 rounded font-bold mr-2"><i class="fa-solid fa-shield-halved"></i> Proctored</span>
+                <span id="neg-mark-badge" class="text-xs text-yellow-400 font-bold hidden"><i class="fa-solid fa-triangle-exclamation"></i> Negative Marking: <span id="neg-val">0</span> per wrong</span>
+            </div>
+            <div id="timer-badge" class="text-red-400 font-bold text-xl bg-slate-900 px-4 py-2 rounded shadow-inner border border-slate-700">
+                <i class="fa-regular fa-clock mr-2"></i><span id="timer">00:00</span>
+            </div>
+        </div>
+
+        <div id="result-summary" class="hidden mb-8 bg-gradient-to-r from-indigo-900 to-slate-900 p-6 rounded-2xl shadow-2xl border-2 border-indigo-500 text-center animate-bounce-in">
+            <h2 class="text-3xl font-bold text-white mb-2">Exam Completed!</h2>
+            <div class="text-6xl font-black text-yellow-400 mb-2" id="final-score-display">0</div>
+            <p class="text-sm text-gray-400 mb-4">Total Questions: <span id="total-q-display">0</span></p>
+            <p id="result-feedback" class="text-gray-300 text-lg">Check your answers below.</p>
+            <button onclick="window.location.href='/student-dashboard.html'" class="mt-4 bg-white text-indigo-900 px-6 py-2 rounded-lg font-bold hover:bg-gray-200 transition">
+                <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+            </button>
+        </div>
+
+        <div id="question-container" class="space-y-8">
+            <p class="text-center text-gray-400 animate-pulse">Preparing questions...</p>
+        </div>
+
+        <div class="mt-10 pb-10">
+            <button onclick="submitExam(false)" id="submit-btn" class="hidden w-full bg-indigo-600 hover:bg-indigo-700 p-4 rounded-xl font-bold text-xl transition shadow-lg border-b-4 border-indigo-800 active:border-b-0 active:translate-y-1">
+                Submit Exam
+            </button>
+            <button onclick="window.location.href='/student-dashboard.html'" id="back-btn" class="hidden w-full bg-slate-700 hover:bg-slate-600 p-4 rounded-xl font-bold text-xl transition">
+                Return to Dashboard
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function getUK(key) {
+            const email = localStorage.getItem('studentEmail');
+            return email ? `${key}_${email}` : key;
+        }
+
+        let examData = null;
+        let timerInterval = null;
+        const examId = new URLSearchParams(window.location.search).get('id');
+        let warningCount = 0; // Anti-cheating warning counter
+
+        // --- NEW: ANTI-CHEATING LOGIC ---
+        document.addEventListener("visibilitychange", function() {
+            // Check if exam is loaded and NOT already submitted
+            if (document.hidden && examData && !document.getElementById('result-summary').classList.contains('hidden')) {
+                return; // Do nothing if exam submitted
+            }
+            
+            if (document.hidden && examData) {
+                warningCount++;
+                if (warningCount > 2) {
+                    alert("🚫 Violation Limit Exceeded! \n\nYou switched tabs too many times. Your exam is being auto-submitted.");
+                    submitExam(true);
+                } else {
+                    alert(`⚠️ WARNING ${warningCount}/2 \n\nTab switching is prohibited! \nIf you switch tabs again, your exam will be auto-submitted.`);
+                }
+            }
+        });
+
+        // Disable specific keys (Ctrl+C, Ctrl+V, PrintScreen, F12)
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'v' || e.key === 'x' || e.key === 'u')) {
+                e.preventDefault();
+                alert("🚫 Copy/Paste is disabled.");
+            }
+            if (e.key === 'F12' || e.key === 'PrintScreen') {
+                e.preventDefault();
+            }
+        });
+        // --------------------------------
+
+        async function initExam() {
+            if (!examId) {
+                alert("No Exam ID found!");
+                window.location.href = '/student-dashboard.html';
+                return;
+            }
+
+            // Check if already attended
+            const historyKey = getUK('examHistory');
+            const history = JSON.parse(localStorage.getItem(historyKey) || '[]');
+            if (history.some(h => h.id === examId)) {
+                alert("⚠️ You have already attended this exam!");
+                window.location.href = '/student-dashboard.html';
+                return;
+            }
+
+            try {
+                const res = await fetch('/admin/exams');
+                if (!res.ok) throw new Error("Failed to fetch exams");
+                
+                const allExams = await res.json();
+                examData = allExams.find(e => e._id === examId);
+                
+                if (!examData) {
+                    alert("Exam not found or deleted.");
+                    window.location.href = '/student-dashboard.html';
+                    return;
+                }
+
+                document.getElementById('exam-title').innerText = examData.examTitle;
+
+                // DETECT WRITING EXAM
+                const isWriting = examData.type === 'Writing' || (examData.questions.length > 0 && !examData.questions[0].options);
+
+                // SHOW NEGATIVE MARK INFO
+                const negMark = parseFloat(examData.negativeMarks) || 0;
+                if(negMark > 0 && !isWriting) {
+                    document.getElementById('neg-mark-badge').classList.remove('hidden');
+                    document.getElementById('neg-val').innerText = negMark;
+                }
+
+                document.getElementById('submit-btn').classList.remove('hidden');
+                startTimer(examData.examTime * 60);
+
+                // CHECK EXAM TYPE & RENDER
+                if (isWriting) {
+                    const topicText = (examData.questions && examData.questions.length > 0 && examData.questions[0].questionText) 
+                                      ? examData.questions[0].questionText 
+                                      : "No Topic Provided";
+
+                    document.getElementById('neg-mark-badge').classList.add('hidden'); 
+                    document.getElementById('question-container').innerHTML = `
+                        <div class="bg-slate-800 p-6 rounded-xl shadow-lg border-l-4 border-cyan-500">
+                            <h3 class="text-xl font-bold text-cyan-400 mb-4">Topic:</h3>
+                            <p class="text-white text-lg mb-6 leading-relaxed">${topicText}</p>
+                            <label class="block text-gray-400 text-sm mb-2">Write your answer below:</label>
+                            <textarea id="writingAnswer" class="w-full h-96 bg-slate-700 text-white p-4 rounded-lg outline-none border border-slate-600 focus:border-cyan-500 shadow-inner" placeholder="Start typing here..."></textarea>
+                            <div class="text-right text-xs text-gray-500 mt-2">Word Count: <span id="wordCount">0</span></div>
+                        </div>
+                    `;
+                    
+                    const txtArea = document.getElementById('writingAnswer');
+                    if(txtArea) {
+                        txtArea.addEventListener('input', function() {
+                            const words = this.value.trim().split(/\s+/).filter(w => w.length > 0).length;
+                            document.getElementById('wordCount').innerText = this.value === '' ? 0 : words;
+                        });
+                    }
+
+                } else {
+                    // Render MCQ Questions
+                    if(examData.questions && examData.questions.length > 0) {
+                        document.getElementById('question-container').innerHTML = examData.questions.map((q, i) => {
+                            const opts = q.options || []; 
+                            return `
+                            <div id="q-card-${i}" class="bg-slate-800 p-6 rounded-xl shadow-lg border-l-4 border-indigo-500 transition-all duration-300">
+                                <div class="mb-4">
+                                    <p class="text-lg font-medium mb-2"><span class="text-indigo-400 font-bold">Q${i+1}.</span> ${q.questionText}</p>
+                                    ${q.questionImg ? `<img src="${q.questionImg}" class="max-h-60 rounded border border-slate-600 mt-2 object-contain">` : ''}
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    ${opts.map((opt, j) => `
+                                        <label id="label-${i}-${j}" class="flex items-center p-3 bg-slate-700 rounded-lg cursor-pointer hover:bg-slate-600 transition border-2 border-transparent">
+                                            <input type="radio" name="q${i}" value="${j}" class="mr-3 w-5 h-5 accent-indigo-500"> 
+                                            <div class="flex items-center gap-2 w-full">
+                                                <span class="flex-1">${opt}</span>
+                                                ${q.optionImages && q.optionImages[j] ? `<img src="${q.optionImages[j]}" class="h-10 rounded bg-white p-0.5">` : ''}
+                                                <i id="icon-correct-${i}-${j}" class="fa-solid fa-circle-check text-white text-xl hidden ml-auto"></i>
+                                                <i id="icon-wrong-${i}-${j}" class="fa-solid fa-circle-xmark text-white text-xl hidden ml-auto"></i>
+                                            </div>
+                                        </label>
+                                    `).join('')}
+                                </div>
+                                <div id="feedback-${i}" class="hidden mt-4 text-sm font-bold p-2 rounded bg-slate-900 text-center"></div>
+                            </div>`;
+                        }).join('');
+                    } else {
+                        document.getElementById('question-container').innerHTML = `<p class="text-center text-red-400">No questions found in this exam.</p>`;
+                    }
+                }
+
+            } catch(e) { 
+                console.error(e);
+                alert("Error loading exam. Please check console.");
+            }
+        }
+
+        function startTimer(duration) {
+            let timer = duration;
+            const display = document.getElementById('timer');
+            timerInterval = setInterval(() => {
+                let mins = parseInt(timer / 60, 10);
+                let secs = parseInt(timer % 60, 10);
+                display.textContent = `${mins}:${secs < 10 ? "0" + secs : secs}`;
+                
+                if (--timer < 0) { 
+                    clearInterval(timerInterval); 
+                    submitExam(true); 
+                }
+            }, 1000);
+        }
+
+        async function submitExam(isAutoSubmit = false) {
+            clearInterval(timerInterval);
+
+            const isWriting = examData.type === 'Writing' || (examData.questions.length > 0 && !examData.questions[0].options);
+
+            // IF WRITING EXAM
+            if (isWriting) {
+                const answer = document.getElementById('writingAnswer') ? document.getElementById('writingAnswer').value : "";
+                
+                // Save to LocalStorage IMMEDIATELY
+                const historyKey = getUK('examHistory');
+                const history = JSON.parse(localStorage.getItem(historyKey) || '[]');
+                const newEntry = {
+                    id: examId,
+                    name: examData.examTitle,
+                    obtainedScore: 0, 
+                    totalScore: 10,   
+                    details: [],      
+                    status: 'Pending',
+                    submittedText: answer,
+                    date: new Date().toLocaleDateString('en-GB')
+                };
+                history.push(newEntry);
+                localStorage.setItem(historyKey, JSON.stringify(history));
+
+                const resultPayload = {
+                    studentName: localStorage.getItem('studentName'),
+                    studentEmail: localStorage.getItem('studentEmail'),
+                    studentPhone: localStorage.getItem(getUK('phone')),
+                    examTitle: examData.examTitle,
+                    score: 0, 
+                    totalScore: 10, 
+                    status: 'Pending', 
+                    submittedText: answer, 
+                    completedAt: new Date().toISOString()
+                };
+
+                await fetch('/admin/save-result', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(resultPayload)
+                });
+                alert("Writing submitted! Teacher will grade it soon.");
+                window.location.href = '/student-dashboard.html';
+                return;
+            }
+
+            // MCQ Logic
+            let score = 0;
+            let correctCount = 0;
+            let wrongCount = 0;
+            const reportDetails = [];
+            const totalQ = examData.questions.length;
+            const negMarkPerWrong = parseFloat(examData.negativeMarks) || 0;
+
+            examData.questions.forEach((q, i) => {
+                const selected = document.querySelector(`input[name="q${i}"]:checked`);
+                const userChoice = selected ? parseInt(selected.value) : -1;
+                document.querySelectorAll(`input[name="q${i}"]`).forEach(inp => inp.disabled = true);
+
+                if (userChoice !== -1) {
+                    const label = document.getElementById(`label-${i}-${userChoice}`);
+                    if (userChoice === q.correctOption) {
+                        score += 1;
+                        correctCount++;
+                        if(label) {
+                            label.classList.add('correct-answer');
+                            document.getElementById(`icon-correct-${i}-${userChoice}`).classList.remove('hidden');
+                        }
+                    } else {
+                        score -= negMarkPerWrong;
+                        wrongCount++;
+                        if(label) {
+                            label.classList.add('wrong-answer');
+                            document.getElementById(`icon-wrong-${i}-${userChoice}`).classList.remove('hidden');
+                        }
+                        const correctLabel = document.getElementById(`label-${i}-${q.correctOption}`);
+                        if(correctLabel) {
+                            correctLabel.classList.add('correct-answer', 'ring-2', 'ring-green-300');
+                            document.getElementById(`icon-correct-${i}-${q.correctOption}`).classList.remove('hidden');
+                        }
+                    }
+                } else {
+                    const correctLabel = document.getElementById(`label-${i}-${q.correctOption}`);
+                    if(correctLabel) {
+                        correctLabel.classList.add('correct-answer', 'opacity-70');
+                        document.getElementById(`icon-correct-${i}-${q.correctOption}`).classList.remove('hidden');
+                    }
+                }
+
+                reportDetails.push({
+                    question: q.questionText,
+                    userAns: userChoice !== -1 ? (q.options ? q.options[userChoice] : "") : "Not Answered",
+                    correctAns: q.options ? q.options[q.correctOption] : ""
+                });
+            });
+
+            const formattedScore = Number.isInteger(score) ? score : score.toFixed(2);
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            document.getElementById('header-bar').classList.add('hidden');
+            document.getElementById('submit-btn').classList.add('hidden');
+            document.getElementById('back-btn').classList.remove('hidden');
+            
+            const resultBox = document.getElementById('result-summary');
+            resultBox.classList.remove('hidden');
+            document.getElementById('final-score-display').innerText = `${formattedScore} / ${totalQ}`;
+            document.getElementById('total-q-display').innerText = totalQ;
+            
+            const percentage = (score / totalQ) * 100;
+            const feedbackMsg = document.getElementById('result-feedback');
+            if(percentage >= 80) feedbackMsg.innerHTML = "🌟 Excellent! Outstanding performance!";
+            else if(percentage >= 50) feedbackMsg.innerHTML = "👍 Good job! Review your mistakes.";
+            else feedbackMsg.innerHTML = "📚 Keep practicing. Check the correct answers below.";
+
+            saveResultToDatabase(formattedScore, correctCount, wrongCount, reportDetails);
+        }
+
+        function saveResultToDatabase(score, correctCount, wrongCount, reportDetails) {
+            const historyKey = getUK('examHistory');
+            const history = JSON.parse(localStorage.getItem(historyKey) || '[]');
+            
+            const newEntry = {
+                id: examId,
+                name: examData.examTitle,
+                obtainedScore: score,
+                totalScore: examData.questions.length,
+                details: reportDetails,
+                date: new Date().toLocaleDateString('en-GB')
+            };
+            
+            history.push(newEntry);
+            localStorage.setItem(historyKey, JSON.stringify(history));
+
+            const resultPayload = {
+                studentName: localStorage.getItem('studentName') || 'Unknown',
+                studentEmail: localStorage.getItem('studentEmail') || 'N/A',
+                studentPhone: localStorage.getItem(getUK('phone')) || 'N/A',
+                examTitle: examData.examTitle,
+                score: score,
+                totalScore: examData.questions.length,
+                correctAnswers: correctCount,
+                wrongAnswers: wrongCount,
+                details: reportDetails, 
+                completedAt: new Date().toISOString()
+            };
+
+            fetch('/admin/save-result', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(resultPayload)
+            })
+            .then(res => { if(res.ok) console.log("Result saved to server."); })
+            .catch(err => console.error("Offline save only."));
+        }
+
+        initExam();
+    </script>
+</body>
+</html>
